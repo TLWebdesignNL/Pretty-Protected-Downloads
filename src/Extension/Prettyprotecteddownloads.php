@@ -32,7 +32,7 @@ use Joomla\Database\DatabaseAwareTrait;
 use Joomla\Event\SubscriberInterface;
 use TLWeb\Plugin\Fields\Prettyprotecteddownloads\Helper\DownloadTokens;
 use TLWeb\Plugin\Fields\Prettyprotecteddownloads\Helper\Entries;
-use TLWeb\Plugin\Fields\Prettyprotecteddownloads\Helper\Repository;
+use TLWeb\Plugin\Fields\Prettyprotecteddownloads\Helper\PrettyprotecteddownloadsHelper;
 use TLWeb\Plugin\Fields\Prettyprotecteddownloads\Helper\Settings;
 use TLWeb\Plugin\Fields\Prettyprotecteddownloads\Helper\Storage;
 
@@ -54,7 +54,7 @@ use TLWeb\Plugin\Fields\Prettyprotecteddownloads\Helper\Storage;
  *   task=cleanup   POST, administrators: deletes stored files no field names any more
  *
  * Every request names the fields context the item belongs to, since who may see an
- * item is decided per context; Repository::CONTEXTS lists the supported ones.
+ * item is decided per context; PrettyprotecteddownloadsHelper::CONTEXTS lists the supported ones.
  */
 final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberInterface, DatabaseAwareInterface
 {
@@ -239,18 +239,18 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
             return;
         }
 
-        $repository = $this->repository();
+        $helper = $this->helper();
         $removed    = [];
 
-        foreach ($repository->fieldsWithValues($context, $itemId) as $field) {
+        foreach ($helper->fieldsWithValues($context, $itemId) as $field) {
             if (\array_key_exists($field->name, $posted)) {
                 array_push($removed, ...Entries::removedFilenames(Entries::decode($field->value ?? ''), Entries::decode($posted[$field->name])));
             }
         }
 
-        $fieldIds = $repository->fieldIds();
+        $fieldIds = $helper->fieldIds();
 
-        foreach ($repository->subformsWithValues($context, $itemId) as $subform) {
+        foreach ($helper->subformsWithValues($context, $itemId) as $subform) {
             if (!\array_key_exists($subform->name, $posted)) {
                 continue;
             }
@@ -286,7 +286,7 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
             return;
         }
 
-        $referenced = $this->repository()->referencedFilenames();
+        $referenced = $this->helper()->referencedFilenames();
         $storage    = Storage::fromParams($this->params);
 
         foreach ($this->pendingDeletes[$key] as $filename) {
@@ -321,7 +321,7 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
             $context = $parts[0] . '.' . $parts[1];
         }
 
-        return Repository::supports($context) ? $context : null;
+        return PrettyprotecteddownloadsHelper::supports($context) ? $context : null;
     }
 
     // ── com_ajax ──────────────────────────────────────────────────────────────
@@ -368,13 +368,13 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
             throw new \RuntimeException(Text::_('JINVALID_TOKEN'), 403);
         }
 
-        $item = $user && !$user->guest ? $this->repository()->item($context, $itemId, $user) : null;
+        $item = $user && !$user->guest ? $this->helper()->item($context, $itemId, $user) : null;
 
         if (!$item || !$item->editable) {
             throw new \RuntimeException(Text::_('JERROR_ALERTNOAUTHOR'), 403);
         }
 
-        if ($field === '' || !$this->repository()->field($context, $field, $itemId)) {
+        if ($field === '' || !$this->helper()->field($context, $field, $itemId)) {
             throw new \RuntimeException(Text::_('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_ERROR_FIELD_NOT_FOUND'), 400);
         }
 
@@ -461,7 +461,7 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
      */
     private function discardReplaced(Storage $storage, string $uuid, string $filename): void
     {
-        if (Entries::belongsTogether($uuid, $filename) && !isset($this->repository()->referencedFilenames()[$filename])) {
+        if (Entries::belongsTogether($uuid, $filename) && !isset($this->helper()->referencedFilenames()[$filename])) {
             $storage->delete($filename);
         }
     }
@@ -483,16 +483,16 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
         $itemId   = $input->getInt('item', 0);
         $uuid     = $input->getString('uuid', '');
         $filename = $input->getString('filename', '');
-        $item     = $user && !$user->guest ? $this->repository()->item($context, $itemId, $user) : null;
+        $item     = $user && !$user->guest ? $this->helper()->item($context, $itemId, $user) : null;
 
         if (!$item || !$item->editable) {
             $this->fail(403);
         }
 
-        $field = $this->repository()->field($context, $input->getString('field', ''), $itemId);
+        $field = $this->helper()->field($context, $input->getString('field', ''), $itemId);
         $entry = $field ? $this->find($field->entries, $uuid) : null;
 
-        if (!$entry && Entries::belongsTogether($uuid, $filename) && !isset($this->repository()->referencedFilenames()[$filename])) {
+        if (!$entry && Entries::belongsTogether($uuid, $filename) && !isset($this->helper()->referencedFilenames()[$filename])) {
             $entry = ['uuid' => $uuid, 'filename' => $filename];
         }
 
@@ -531,14 +531,14 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
             $this->refuse('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_ERROR_EXPIRED');
         }
 
-        $item = $this->repository()->item($context, $itemId, $user);
+        $item = $this->helper()->item($context, $itemId, $user);
 
         if (!$item || !$item->visible) {
             $this->refuse('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_ERROR_NO_ACCESS');
         }
 
         $levels = $user->getAuthorisedViewLevels();
-        $field  = $this->repository()->field($context, $name, $itemId);
+        $field  = $this->helper()->field($context, $name, $itemId);
 
         if (
             !$field
@@ -580,7 +580,7 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
         }
 
         $storage = Storage::fromParams($this->params);
-        $unused  = $storage->unused($this->repository()->referencedFilenames(), time() - self::CLEANUP_GRACE);
+        $unused  = $storage->unused($this->helper()->referencedFilenames(), time() - self::CLEANUP_GRACE);
         $deleted = 0;
         $bytes   = 0;
 
@@ -686,10 +686,10 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
     }
 
     /**
-     * @return  Repository
+     * @return  PrettyprotecteddownloadsHelper
      */
-    private function repository(): Repository
+    private function helper(): PrettyprotecteddownloadsHelper
     {
-        return new Repository($this->getDatabase(), $this->getApplication());
+        return new PrettyprotecteddownloadsHelper($this->getDatabase(), $this->getApplication());
     }
 }

@@ -16,7 +16,7 @@ use Joomla\CMS\Form\FormHelper;
 use Joomla\CMS\Language\Text;
 use Joomla\Registry\Registry;
 use TLWeb\Plugin\Fields\Prettyprotecteddownloads\Helper\Entries;
-use TLWeb\Plugin\Fields\Prettyprotecteddownloads\Helper\Repository;
+use TLWeb\Plugin\Fields\Prettyprotecteddownloads\Helper\PrettyprotecteddownloadsHelper;
 
 // phpcs:disable PSR1.Files.SideEffects
 \defined('_JEXEC') or die;
@@ -90,7 +90,7 @@ XML;
     {
         // The context is the field's own, set on the form element by the plugin, so it
         // is known inside a subform as well.
-        if (!Repository::supports((string) ($this->element['context'] ?? ''))) {
+        if (!PrettyprotecteddownloadsHelper::supports((string) ($this->element['context'] ?? ''))) {
             return '<div class="alert alert-warning">' . Text::_('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_UNSUPPORTED_CONTEXT') . '</div>';
         }
 

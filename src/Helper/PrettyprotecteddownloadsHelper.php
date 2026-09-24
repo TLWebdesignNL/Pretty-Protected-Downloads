@@ -26,7 +26,7 @@ use Joomla\Database\ParameterType;
  * file belongs to, the field that lists it, and which stored files are still named
  * by any field at all.
  */
-final class Repository
+final class PrettyprotecteddownloadsHelper
 {
     /**
      * The field type this plugin provides.

@@ -19,7 +19,7 @@ use Joomla\CMS\Session\Session;
 use Joomla\CMS\Uri\Uri;
 use Joomla\Database\DatabaseInterface;
 use TLWeb\Plugin\Fields\Prettyprotecteddownloads\Extension\Prettyprotecteddownloads;
-use TLWeb\Plugin\Fields\Prettyprotecteddownloads\Helper\Repository;
+use TLWeb\Plugin\Fields\Prettyprotecteddownloads\Helper\PrettyprotecteddownloadsHelper;
 use TLWeb\Plugin\Fields\Prettyprotecteddownloads\Helper\Settings;
 use TLWeb\Plugin\Fields\Prettyprotecteddownloads\Helper\Storage;
 
@@ -135,8 +135,8 @@ class StoragestatusField extends FormField
      */
     private function cleanup(Storage $storage): string
     {
-        $repository = new Repository(Factory::getContainer()->get(DatabaseInterface::class), Factory::getApplication());
-        $unused     = $storage->unused($repository->referencedFilenames(), time() - Prettyprotecteddownloads::CLEANUP_GRACE);
+        $helper = new PrettyprotecteddownloadsHelper(Factory::getContainer()->get(DatabaseInterface::class), Factory::getApplication());
+        $unused     = $storage->unused($helper->referencedFilenames(), time() - Prettyprotecteddownloads::CLEANUP_GRACE);
 
         if ($unused === []) {
             return '<p class="text-muted small mb-0">' . Text::_('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_CLEANUP_NONE') . '</p>';
