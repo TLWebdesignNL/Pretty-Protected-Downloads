@@ -17,7 +17,7 @@
  * its own process with its own temporary site root, so the fixtures of one cannot
  * reach another.
  *
- * What is covered is everything that decides which file a request may reach -- the
+ * What is covered is everything that decides which file a request may reach: the
  * stored value, the storage folder and the download tokens. The parts that need a
  * running Joomla (the database lookups, the events, the layouts) are not.
  *

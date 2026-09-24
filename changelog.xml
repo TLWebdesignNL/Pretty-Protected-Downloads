@@ -8,7 +8,7 @@
             <item>Files are stored outside the web root, or inside it in a folder closed with .htaccess, and are only served after the article, category, field and field group access levels and the publishing dates have been checked.</item>
             <item>Every download button carries a short-lived token bound to the visitor's session, so a file can only be fetched from a page the visitor was allowed to see.</item>
             <item>Upload straight from the article form, with progress, a per-file button text, title, description, icon and button style.</item>
-            <item>Three display layouts -- buttons, cards and list -- each with an optional file type and size, and each overridable from the template.</item>
+            <item>Three display layouts, buttons, cards and list, each with an optional file type and size, and each overridable from the template.</item>
             <item>Works inside subform fields.</item>
             <item>Allowed file types and a maximum file size; scripts, web pages and SVG images are always refused.</item>
             <item>Visitors download the file under the name it was uploaded with.</item>

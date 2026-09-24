@@ -11,9 +11,9 @@
 /.gitignore export-ignore
 /README.md export-ignore
 
-# Both are served to Joomla from main over https -- <updateservers> and
-# <changelogurl> name raw.githubusercontent URLs -- so a copy frozen inside the zip
-# is never read, and is out of date the moment the next version is tagged.
+# Both are served to Joomla from main over https, since <updateservers> and
+# <changelogurl> name raw.githubusercontent URLs. A copy frozen inside the zip is
+# never read, and is out of date the moment the next version is tagged.
 /changelog.xml export-ignore
 /updates.xml export-ignore
 

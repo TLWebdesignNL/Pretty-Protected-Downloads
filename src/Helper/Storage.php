@@ -22,7 +22,7 @@ use Joomla\Registry\Registry;
  *
  * Two ways to keep it are offered. Outside the web root, the web server has no URL for
  * the files at all, whatever server it is. Inside the web root the folder is closed with
- * an .htaccess file, which only Apache and LiteSpeed read -- on nginx or IIS the files
+ * an .htaccess file, which only Apache and LiteSpeed read. On nginx or IIS the files
  * would be downloadable by anyone who guesses a name, which the status field says.
  *
  * The folder is created, and closed, the first time it is needed rather than when the
@@ -252,8 +252,8 @@ HTACCESS;
      * The files this plugin wrote to the folder, by name, with their size and
      * modification time.
      *
-     * Anything else in the folder -- the protection files it is prepared with, or the
-     * files of whatever the folder is shared with -- is not listed, so a clean-up can
+     * Anything else in the folder, such as the protection files it is prepared with or
+     * the files of whatever the folder is shared with, is not listed, so a clean-up can
      * never remove it.
      *
      * @return  array<string, array{size: int, mtime: int}>

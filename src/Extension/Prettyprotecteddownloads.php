@@ -495,8 +495,8 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
 
     /**
      * Whether the article, and its category, are published and open to these view
-     * levels -- the same test com_content applies before it shows the article, so an
-     * archived article keeps its downloads and an unpublished one does not.
+     * levels. This is the same test com_content applies before it shows the article,
+     * so an archived article keeps its downloads and an unpublished one does not.
      *
      * @param   object  $article  The article row.
      * @param   int[]   $levels   The visitor's view levels.

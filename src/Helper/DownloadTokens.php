@@ -20,7 +20,7 @@ namespace TLWeb\Plugin\Fields\Prettyprotecteddownloads\Helper;
  * A token is issued for every file a page renders and kept in the visitor's session,
  * bound to the file, the item and the field. A download is only served for a token
  * this session was given, so a file can not be fetched by guessing or sharing its
- * identifiers -- only from a page the visitor was allowed to see. The access check
+ * identifiers, only from a page the visitor was allowed to see. The access check
  * on the download itself runs as well; the token is the second lock, not the only one.
  *
  * A token stays valid until it expires rather than being spent on first use, so a

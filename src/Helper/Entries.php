@@ -44,7 +44,7 @@ final class Entries
     /**
      * A name this plugin wrote: a stored name that ends in a uuid. Nothing is ever
      * read, listed or deleted from the storage folder that does not match this, so a
-     * folder shared with anything else -- or a badly chosen one -- comes to no harm.
+     * folder shared with anything else, or a badly chosen one, comes to no harm.
      */
     public const OWN_FILE = '/^[a-z0-9_\-]+-[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}\.[a-z0-9]+$/i';
 

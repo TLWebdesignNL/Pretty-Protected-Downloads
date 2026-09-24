@@ -2,7 +2,7 @@
 
 Pretty Protected Downloads is a Joomla custom field for articles that offers files for download without ever giving them a public URL. Files are stored outside the web root, and every download goes through Joomla, which checks that the visitor may see the article, its category, the field and its field group before a single byte is sent.
 
-Use it for member documents, meeting minutes, reports for a closed group, price lists for logged-in customers — anything that should follow the access level of the article it belongs to, rather than being one guessed or shared link away from anyone.
+Use it for member documents, meeting minutes, reports for a closed group, price lists for logged-in customers: anything that should follow the access level of the article it belongs to, rather than being one guessed or shared link away from anyone.
 
 ## Features
 
@@ -12,10 +12,10 @@ Use it for member documents, meeting minutes, reports for a closed group, price 
 - Every download is checked against the article's publishing state and dates, the article and category access levels, and the field and field group access levels.
 - Every download button carries a short-lived token bound to the visitor's session, so a file can only be fetched from a page that visitor was allowed to see.
 - Visitors download the file under the name it was uploaded with.
-- Three layouts — **Buttons**, **Cards** and **List** — each with an optional file type and size, and each overridable from your template.
+- Three layouts, **Buttons**, **Cards** and **List**, each with an optional file type and size, and each overridable from your template.
 - Works inside **subform** fields.
 - Allowed file types and a maximum file size. Scripts, web pages and SVG images are always refused, and every upload is inspected for hidden PHP the same way the Media Manager does it.
-- Removing a file from an article deletes it from disk once the article is saved — unless another article, such as a copy, still uses it.
+- Removing a file from an article deletes it from disk once the article is saved, unless another article, such as a copy, still uses it.
 - A storage status on the plugin settings screen, and a button that deletes stored files no field uses any more.
 - English and Dutch language files.
 
@@ -61,9 +61,9 @@ When the hosting account gives PHP no writable folder outside the website, choos
 
 ### Status
 
-The **Storage** tab of the plugin settings shows the folder as last saved: whether it exists or can be created, whether it is writable, whether it lies inside the web root, and the largest upload that is in effect — the lower of the plugin setting and the server's PHP limits (`upload_max_filesize`, `post_max_size`).
+The **Storage** tab of the plugin settings shows the folder as last saved: whether it exists or can be created, whether it is writable, whether it lies inside the web root, and the largest upload that is in effect: the lower of the plugin setting and the server's PHP limits (`upload_max_filesize`, `post_max_size`).
 
-For a folder inside the web root it also reports **Direct access**: the plugin asks the web server for the folder's own `index.html` and shows whether the server refused it. This is the real test — an `.htaccess` file on disk means nothing to a server that does not read it. If it says *NOT blocked*, fix the server configuration before storing anything confidential.
+For a folder inside the web root it also reports **Direct access**: the plugin asks the web server for the folder's own `index.html` and shows whether the server refused it. This is the real test, because an `.htaccess` file on disk means nothing to a server that does not read it. If it says *NOT blocked*, fix the server configuration before storing anything confidential.
 
 ## Configuration
 
@@ -110,14 +110,14 @@ A download is a `POST` to `index.php?option=com_ajax&group=fields&plugin=prettyp
 2. The download token was issued to this session, for exactly this file, article and field, and has not expired.
 3. The article is published, within its publish up and publish down dates, and its access level is one of the visitor's.
 4. The category is published, and its access level is one of the visitor's.
-5. The field is published, and its access level — and that of its field group — is one of the visitor's.
+5. The field is published, and its access level, and that of its field group, is one of the visitor's.
 6. The file is listed in that field of that article, and its stored name matches the entry it belongs to.
 
 Anything else sends the visitor back to the page with a message. The file is sent as an attachment, under the name it was uploaded with but always with the stored file's own extension, with a content type taken from that extension rather than sniffed from the bytes, with `X-Content-Type-Options: nosniff` and a sandboxing Content Security Policy, and is never cached by the browser.
 
-The plugin never reads, lists or deletes anything in the storage folder that it did not write itself — its files all end in the uuid they were given on upload — so even a folder shared with other files comes to no harm from the clean-up.
+The plugin never reads, lists or deletes anything in the storage folder that it did not write itself. Its files all end in the uuid they were given on upload, so even a folder shared with other files comes to no harm from the clean-up.
 
-Editors upload through the same endpoint (`task=upload`), which requires the form token and edit permission on the article — `core.edit`, or `core.edit.own` on their own articles.
+Editors upload through the same endpoint (`task=upload`), which requires the form token and edit permission on the article: `core.edit`, or `core.edit.own` on their own articles.
 
 ## Clean-up
 
