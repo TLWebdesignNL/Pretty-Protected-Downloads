@@ -20,6 +20,7 @@
     </files>
     <media folder="media" destination="plg_fields_prettyprotecteddownloads">
         <filename>joomla.asset.json</filename>
+        <filename>logo.svg</filename>
         <folder>js</folder>
     </media>
     <changelogurl>https://raw.githubusercontent.com/TLWebdesignNL/Pretty-Protected-Downloads/main/changelog.xml</changelogurl>
@@ -29,6 +30,11 @@
     <config>
         <fields name="params">
             <fieldset name="basic">
+                <field
+                    name="logo"
+                    type="note"
+                    description="PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_FIELD_LOGO_DESC"
+                />
                 <field
                     name="ownerinfo"
                     type="note"
