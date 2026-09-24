@@ -1,0 +1,21 @@
+{
+  "$schema": "https://developer.joomla.org/schemas/json-schema/web_assets.json",
+  "name": "plg_fields_prettyprotecteddownloads",
+  "version": "1.0.0",
+  "description": "Pretty Protected Downloads",
+  "license": "GPL-2.0-or-later",
+  "assets": [
+    {
+      "name": "plg_fields_prettyprotecteddownloads.admin",
+      "type": "script",
+      "uri": "plg_fields_prettyprotecteddownloads/admin.js",
+      "dependencies": [
+        "core"
+      ],
+      "attributes": {
+        "defer": true
+      },
+      "version": "auto"
+    }
+  ]
+}

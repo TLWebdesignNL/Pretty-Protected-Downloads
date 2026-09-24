@@ -1,0 +1,7 @@
+# User-specific stuff
+.idea
+.DS_Store
+.claude
+
+# Stored downloads, written when this repo is symlinked into a Joomla installation
+files/

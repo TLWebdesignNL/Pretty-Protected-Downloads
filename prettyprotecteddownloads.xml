@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8"?>
+<extension type="plugin" group="fields" method="upgrade">
+    <name>plg_fields_prettyprotecteddownloads</name>
+    <creationDate>2026-09-24</creationDate>
+    <author>Tom van der Laan</author>
+    <authorEmail>info@tlwebdesign.nl</authorEmail>
+    <authorUrl>https://tlwebdesign.nl</authorUrl>
+    <copyright>TLWebdesign</copyright>
+    <license>GNU General Public License version 2 or later; see LICENSE.txt</license>
+    <version>1.0.0</version>
+    <description>PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_XML_DESCRIPTION</description>
+    <scriptfile>script.php</scriptfile>
+    <namespace path="src">TLWeb\Plugin\Fields\Prettyprotecteddownloads</namespace>
+    <files>
+        <folder plugin="prettyprotecteddownloads">services</folder>
+        <folder>language</folder>
+        <folder>params</folder>
+        <folder>src</folder>
+        <folder>tmpl</folder>
+    </files>
+    <media folder="media" destination="plg_fields_prettyprotecteddownloads">
+        <filename>joomla.asset.json</filename>
+        <folder>js</folder>
+    </media>
+    <changelogurl>https://raw.githubusercontent.com/TLWebdesignNL/Pretty-Protected-Downloads/main/changelog.xml</changelogurl>
+    <updateservers>
+        <server type="extension" priority="1" name="Pretty Protected Downloads Updates">https://raw.githubusercontent.com/TLWebdesignNL/Pretty-Protected-Downloads/main/updates.xml</server>
+    </updateservers>
+    <config>
+        <fields name="params">
+            <fieldset name="basic">
+                <field
+                    name="ownerinfo"
+                    type="note"
+                    description="PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_FIELD_OWNERINFO_DESC"
+                />
+            </fieldset>
+            <fieldset
+                name="storage"
+                label="PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_FIELDSET_STORAGE_LABEL"
+                addfieldprefix="TLWeb\Plugin\Fields\Prettyprotecteddownloads\Field"
+            >
+                <field
+                    name="storage_method"
+                    type="list"
+                    label="PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_FIELD_STORAGE_METHOD_LABEL"
+                    description="PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_FIELD_STORAGE_METHOD_DESC"
+                    default="outside"
+                    validate="options"
+                >
+                    <option value="outside">PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_FIELD_STORAGE_METHOD_OUTSIDE</option>
+                    <option value="webroot">PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_FIELD_STORAGE_METHOD_WEBROOT</option>
+                </field>
+                <field
+                    name="storage_path"
+                    type="text"
+                    label="PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_FIELD_STORAGE_PATH_LABEL"
+                    description="PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_FIELD_STORAGE_PATH_OUTSIDE_DESC"
+                    hint="/home/account/protected-downloads"
+                    showon="storage_method:outside"
+                    filter="string"
+                />
+                <field
+                    name="storage_path_webroot"
+                    type="text"
+                    label="PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_FIELD_STORAGE_PATH_LABEL"
+                    description="PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_FIELD_STORAGE_PATH_WEBROOT_DESC"
+                    hint="files/prettyprotecteddownloads"
+                    showon="storage_method:webroot"
+                    filter="string"
+                />
+                <field
+                    name="storage_status"
+                    type="storagestatus"
+                    label="PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_FIELD_STORAGE_STATUS_LABEL"
+                    description="PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_FIELD_STORAGE_STATUS_DESC"
+                />
+            </fieldset>
+            <fieldset name="uploads" label="PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_FIELDSET_UPLOADS_LABEL">
+                <field
+                    name="allowed_extensions"
+                    type="text"
+                    label="PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_FIELD_EXTENSIONS_LABEL"
+                    description="PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_FIELD_EXTENSIONS_DESC"
+                    default="pdf,doc,docx,odt,rtf,txt,csv,xls,xlsx,ods,ppt,pptx,odp,zip,jpg,jpeg,png,gif,webp,mp3,mp4"
+                    filter="string"
+                />
+                <field
+                    name="max_size"
+                    type="number"
+                    label="PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_FIELD_MAX_SIZE_LABEL"
+                    description="PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_FIELD_MAX_SIZE_DESC"
+                    default="20"
+                    min="0"
+                    step="1"
+                    filter="float"
+                />
+            </fieldset>
+            <fieldset name="downloads" label="PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_FIELDSET_DOWNLOADS_LABEL">
+                <field
+                    name="token_lifetime"
+                    type="number"
+                    label="PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_FIELD_TOKEN_LIFETIME_LABEL"
+                    description="PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_FIELD_TOKEN_LIFETIME_DESC"
+                    default="30"
+                    min="1"
+                    max="1440"
+                    step="1"
+                    filter="integer"
+                />
+            </fieldset>
+        </fields>
+    </config>
+</extension>
