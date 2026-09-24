@@ -44,6 +44,8 @@ Enter the absolute server path of a folder next to your website folder, for exam
 
 Files outside the web root have no URL at all. This works on every web server.
 
+The plugin refuses to use the website folder itself, any folder above it, or one of Joomla's own folders (`administrator`, `images`, `media`, …): closing one of those with `.htaccess` would take the site offline. A folder *inside* one of them, such as `images/protected`, is allowed.
+
 ### Inside the web root
 
 When the hosting account gives PHP no writable folder outside the website, choose **Inside the web root, closed with .htaccess**. The folder defaults to `files/prettyprotecteddownloads` and is closed with an `.htaccess` file that denies all direct access.
@@ -60,6 +62,8 @@ When the hosting account gives PHP no writable folder outside the website, choos
 ### Status
 
 The **Storage** tab of the plugin settings shows the folder as last saved: whether it exists or can be created, whether it is writable, whether it lies inside the web root, and the largest upload that is in effect — the lower of the plugin setting and the server's PHP limits (`upload_max_filesize`, `post_max_size`).
+
+For a folder inside the web root it also reports **Direct access**: the plugin asks the web server for the folder's own `index.html` and shows whether the server refused it. This is the real test — an `.htaccess` file on disk means nothing to a server that does not read it. If it says *NOT blocked*, fix the server configuration before storing anything confidential.
 
 ## Configuration
 
@@ -109,7 +113,9 @@ A download is a `POST` to `index.php?option=com_ajax&group=fields&plugin=prettyp
 5. The field is published, and its access level — and that of its field group — is one of the visitor's.
 6. The file is listed in that field of that article, and its stored name matches the entry it belongs to.
 
-Anything else sends the visitor back to the page with a message. The file is sent as an attachment, with `X-Content-Type-Options: nosniff` and a sandboxing Content Security Policy, and is never cached by the browser.
+Anything else sends the visitor back to the page with a message. The file is sent as an attachment, under the name it was uploaded with but always with the stored file's own extension, with a content type taken from that extension rather than sniffed from the bytes, with `X-Content-Type-Options: nosniff` and a sandboxing Content Security Policy, and is never cached by the browser.
+
+The plugin never reads, lists or deletes anything in the storage folder that it did not write itself — its files all end in the uuid they were given on upload — so even a folder shared with other files comes to no harm from the clean-up.
 
 Editors upload through the same endpoint (`task=upload`), which requires the form token and edit permission on the article — `core.edit`, or `core.edit.own` on their own articles.
 

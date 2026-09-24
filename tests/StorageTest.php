@@ -37,6 +37,19 @@ check('a folder in the site is inside, before it exists', (new Storage(Storage::
 check('a "outside" path that is really in the site is inside', (new Storage(Storage::OUTSIDE, $site . '/oops', $site))->isInsideWebroot());
 check('a sibling whose name starts like the site is outside', !(new Storage(Storage::OUTSIDE, $site . '-files', $site))->isInsideWebroot());
 
+group('Folders the site cannot do without');
+mkdir($site . '/administrator');
+mkdir($site . '/images');
+check('the site root is refused', (new Storage(Storage::OUTSIDE, $site, $site))->isForbidden());
+check('so is a folder above it', (new Storage(Storage::OUTSIDE, JPATH_ROOT, $site))->isForbidden());
+check('and the root of the disk', (new Storage(Storage::OUTSIDE, '/', $site))->path() === '' || (new Storage(Storage::OUTSIDE, '/', $site))->isForbidden());
+check('and Joomla\'s own folders', (new Storage(Storage::WEBROOT, 'administrator', $site))->isForbidden() && (new Storage(Storage::WEBROOT, 'images', $site))->isForbidden());
+check('a folder inside one of them is fine', !(new Storage(Storage::WEBROOT, 'images/protected', $site))->isForbidden());
+check('the default folder is fine', !(new Storage(Storage::WEBROOT, '', $site))->isForbidden());
+check('a sibling of the site is fine', !(new Storage(Storage::OUTSIDE, $outside, $site))->isForbidden());
+check('a refused folder is not prepared', throws(static fn () => (new Storage(Storage::OUTSIDE, $site, $site))->prepare()) && !is_file($site . '/.htaccess'));
+check('and the status says so', (new Storage(Storage::WEBROOT, 'administrator', $site))->status()['forbidden']);
+
 group('Preparing the folder');
 $storage = new Storage(Storage::OUTSIDE, $outside, $site);
 $status  = $storage->status();
@@ -56,6 +69,9 @@ file_put_contents(JPATH_ROOT . '/private/secret.txt', 'no');
 check('a stored file is found', $storage->locate($name) === $outside . '/' . $name);
 check('a path out of the folder is not', $storage->locate('../secret.txt') === null);
 check('nor the protection files', $storage->locate('.htaccess') === null);
+file_put_contents($outside . '/configuration.php', '<?php');
+check('nor a file this plugin did not write, even inside the folder', $storage->locate('configuration.php') === null);
+check('which cannot be deleted through it either', !$storage->delete('configuration.php') && is_file($outside . '/configuration.php'));
 check('nor a file that is not there', $storage->locate('gone-' . $uuid . '.pdf') === null);
 check('deleting outside the folder does nothing', !$storage->delete('../secret.txt') && is_file(JPATH_ROOT . '/private/secret.txt'));
 
@@ -72,7 +88,9 @@ $expected = [$fresh, $old, $name];
 sort($listed);
 sort($expected);
 check('the listing holds the stored files, not the protection files', $listed === $expected);
+touch($outside . '/configuration.php', time() - 2 * 86400);
 $unused = $storage->unused([$name => true], time() - 86400);
+check('a file this plugin did not write is never unused', !isset($unused['configuration.php']));
 check('an old file no field names is unused', isset($unused[$old]));
 check('a file a field names is not', !isset($unused[$name]));
 check('a fresh upload is given its grace period', !isset($unused[$fresh]));

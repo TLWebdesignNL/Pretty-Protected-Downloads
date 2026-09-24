@@ -20,6 +20,7 @@ use Joomla\CMS\Form\Form;
 use Joomla\CMS\Form\FormHelper;
 use Joomla\CMS\HTML\HTMLHelper;
 use Joomla\CMS\Language\Text;
+use Joomla\CMS\Log\Log;
 use Joomla\CMS\Session\Session;
 use Joomla\CMS\Uri\Uri;
 use Joomla\CMS\User\User;
@@ -59,6 +60,35 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
      * treat it as unused.
      */
     public const CLEANUP_GRACE = 86400;
+
+    /**
+     * The content types downloads are sent with, by extension. The type is taken from
+     * the name rather than sniffed from the bytes, so a file that is not what its name
+     * says is never sent as a page or a script; anything else is a plain octet stream.
+     */
+    private const CONTENT_TYPES = [
+        'pdf'  => 'application/pdf',
+        'doc'  => 'application/msword',
+        'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'odt'  => 'application/vnd.oasis.opendocument.text',
+        'rtf'  => 'application/rtf',
+        'txt'  => 'text/plain',
+        'csv'  => 'text/csv',
+        'xls'  => 'application/vnd.ms-excel',
+        'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'ods'  => 'application/vnd.oasis.opendocument.spreadsheet',
+        'ppt'  => 'application/vnd.ms-powerpoint',
+        'pptx' => 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        'odp'  => 'application/vnd.oasis.opendocument.presentation',
+        'zip'  => 'application/zip',
+        'jpg'  => 'image/jpeg',
+        'jpeg' => 'image/jpeg',
+        'png'  => 'image/png',
+        'gif'  => 'image/gif',
+        'webp' => 'image/webp',
+        'mp3'  => 'audio/mpeg',
+        'mp4'  => 'video/mp4',
+    ];
 
     /**
      * Stored files an article save removed from its fields, by article id, deleted once
@@ -280,8 +310,21 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
             throw new \RuntimeException(Text::_('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_ERROR_UNSAFE'), 400);
         }
 
-        $storage  = Storage::fromParams($this->params);
-        $folder   = $storage->prepare();
+        $storage = Storage::fromParams($this->params);
+
+        try {
+            $folder = $storage->prepare();
+        } catch (\RuntimeException $e) {
+            // The reason names a server path; that is for the log and the super user,
+            // not for every editor's screen.
+            Log::add($e->getMessage(), Log::ERROR, 'plg_fields_prettyprotecteddownloads');
+
+            throw new \RuntimeException(
+                $user->authorise('core.admin') ? $e->getMessage() : Text::_('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_ERROR_STORAGE_UNAVAILABLE'),
+                500
+            );
+        }
+
         $uuid     = Entries::uuid();
         $filename = Entries::storedName($original, $uuid);
 
@@ -451,7 +494,9 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     /**
-     * Whether the article, and its category, are published and open to these view levels.
+     * Whether the article, and its category, are published and open to these view
+     * levels -- the same test com_content applies before it shows the article, so an
+     * archived article keeps its downloads and an unpublished one does not.
      *
      * @param   object  $article  The article row.
      * @param   int[]   $levels   The visitor's view levels.
@@ -462,7 +507,7 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
     {
         $now = Factory::getDate()->toSql();
 
-        return (int) $article->state === 1
+        return \in_array((int) $article->state, [1, 2], true)
             && (int) $article->category_published === 1
             && (empty($article->publish_up) || $article->publish_up <= $now)
             && (empty($article->publish_down) || $article->publish_down > $now)
@@ -515,17 +560,15 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
      */
     private function send(string $file, string $name): never
     {
-        $mime = 'application/octet-stream';
-
-        if (class_exists(\finfo::class)) {
-            $mime = (new \finfo(FILEINFO_MIME_TYPE))->file($file) ?: $mime;
-        }
-
+        $mime  = self::CONTENT_TYPES[Entries::extension($file)] ?? 'application/octet-stream';
         $ascii = (string) preg_replace('/[^\x20-\x7E]|["\\\\]/', '_', $name);
 
         while (ob_get_level()) {
             ob_end_clean();
         }
+
+        // Compression would make the Content-Length wrong and the download truncated.
+        @ini_set('zlib.output_compression', 'Off');
 
         header('Content-Type: ' . $mime);
         header('Content-Disposition: attachment; filename="' . $ascii . '"; filename*=UTF-8\'\'' . rawurlencode($name));

@@ -42,6 +42,13 @@ final class Entries
     public const UUID = '/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i';
 
     /**
+     * A name this plugin wrote: a stored name that ends in a uuid. Nothing is ever
+     * read, listed or deleted from the storage folder that does not match this, so a
+     * folder shared with anything else -- or a badly chosen one -- comes to no harm.
+     */
+    public const OWN_FILE = '/^[a-z0-9_\-]+-[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}\.[a-z0-9]+$/i';
+
+    /**
      * The text keys an entry carries besides the uuid and filenames.
      */
     private const TEXT_KEYS = ['button', 'title', 'description', 'icon', 'class'];
@@ -222,7 +229,7 @@ final class Entries
         $found = [];
 
         foreach ($value as $key => $child) {
-            if ($key === 'filename' && \is_string($child) && preg_match(self::STORED_NAME, $child)) {
+            if ($key === 'filename' && \is_string($child) && preg_match(self::OWN_FILE, $child)) {
                 $found[] = $child;
             } elseif (\is_array($child) || \is_string($child)) {
                 array_push($found, ...self::filenamesIn($child));
@@ -259,7 +266,9 @@ final class Entries
      * The name a visitor's browser saves the download as.
      *
      * The uploaded name when the entry has one, otherwise the stored name without the
-     * uuid it was given on upload.
+     * uuid it was given on upload. Either way it ends in the stored file's own
+     * extension: the uploaded name is an editor's text, and a PDF that saves as
+     * "report.html" would be opened as a web page.
      *
      * @param   array  $entry  The entry.
      *
@@ -267,14 +276,14 @@ final class Entries
      */
     public static function downloadName(array $entry): string
     {
-        $original = self::cleanOriginal((string) ($entry['original'] ?? ''));
+        $filename  = (string) ($entry['filename'] ?? '');
+        $uuid      = (string) ($entry['uuid'] ?? '');
+        $extension = self::extension($filename);
+        $original  = self::cleanOriginal((string) ($entry['original'] ?? ''));
 
         if ($original !== '') {
-            return $original;
+            return self::extension($original) === $extension ? $original : $original . '.' . $extension;
         }
-
-        $filename = (string) ($entry['filename'] ?? '');
-        $uuid     = (string) ($entry['uuid'] ?? '');
 
         if ($uuid !== '') {
             $filename = str_replace('-' . $uuid . '.', '.', $filename);

@@ -41,6 +41,16 @@ final class Storage
     public const DEFAULT_WEBROOT_FOLDER = 'files/prettyprotecteddownloads';
 
     /**
+     * Joomla's own top-level folders. Closing one of these with .htaccess would take
+     * the site, the administrator or every image on it offline, so none of them is
+     * ever accepted as the storage folder.
+     */
+    private const JOOMLA_FOLDERS = [
+        'administrator', 'api', 'cache', 'cli', 'components', 'images', 'includes', 'installation',
+        'language', 'layouts', 'libraries', 'logs', 'media', 'modules', 'plugins', 'templates', 'tmp',
+    ];
+
+    /**
      * Closes the folder on Apache 2.4, and on 2.2 through the compatibility module.
      */
     private const HTACCESS = <<<'HTACCESS'
@@ -115,16 +125,56 @@ HTACCESS;
      */
     public function isInsideWebroot(): bool
     {
+        return $this->relativeToWebroot() !== null;
+    }
+
+    /**
+     * The storage folder as a path relative to the site root, or null when it lies
+     * outside it. The site root itself is the empty string.
+     *
+     * @return  ?string
+     */
+    public function relativeToWebroot(): ?string
+    {
+        $path = $this->path();
+
+        if ($path === '') {
+            return null;
+        }
+
+        $root = $this->realRoot();
+        $real = rtrim($this->resolveExisting($path), '/\\');
+
+        if ($real === $root) {
+            return '';
+        }
+
+        return str_starts_with($real, $root . '/') ? substr($real, \strlen($root) + 1) : null;
+    }
+
+    /**
+     * Whether the folder is one the site cannot do without: the site root, a folder
+     * above it, or one of Joomla's own folders. Files are never written there, and
+     * neither is the .htaccess that would close it.
+     *
+     * @return  bool
+     */
+    public function isForbidden(): bool
+    {
         $path = $this->path();
 
         if ($path === '') {
             return false;
         }
 
-        $root = rtrim(realpath($this->siteRoot) ?: $this->siteRoot, '/\\') . '/';
-        $path = rtrim($this->resolveExisting($path), '/\\') . '/';
+        $root = $this->realRoot();
+        $real = rtrim($this->resolveExisting($path), '/\\');
 
-        return str_starts_with($path, $root);
+        if ($real === $root || str_starts_with($root . '/', $real . '/')) {
+            return true;
+        }
+
+        return \in_array($this->relativeToWebroot(), self::JOOMLA_FOLDERS, true);
     }
 
     /**
@@ -140,6 +190,10 @@ HTACCESS;
 
         if ($path === '') {
             throw new \RuntimeException(Text::_('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_ERROR_STORAGE_NOT_CONFIGURED'));
+        }
+
+        if ($this->isForbidden()) {
+            throw new \RuntimeException(Text::sprintf('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_ERROR_STORAGE_FORBIDDEN', $path));
         }
 
         if (!is_dir($path) && !@mkdir($path, 0750, true) && !is_dir($path)) {
@@ -161,7 +215,7 @@ HTACCESS;
 
     /**
      * The absolute path of a stored file, or null when the name is not one this plugin
-     * stores or the file is not there.
+     * wrote or the file is not there.
      *
      * @param   string  $filename  The stored filename.
      *
@@ -171,7 +225,7 @@ HTACCESS;
     {
         $path = $this->path();
 
-        if ($path === '' || !preg_match(Entries::STORED_NAME, $filename)) {
+        if ($path === '' || !preg_match(Entries::OWN_FILE, $filename)) {
             return null;
         }
 
@@ -181,7 +235,7 @@ HTACCESS;
     }
 
     /**
-     * Delete a stored file. Names that are not stored names are ignored.
+     * Delete a stored file. Names this plugin did not write are ignored.
      *
      * @param   string  $filename  The stored filename.
      *
@@ -195,10 +249,12 @@ HTACCESS;
     }
 
     /**
-     * The stored files in the folder, by name, with their size and modification time.
+     * The files this plugin wrote to the folder, by name, with their size and
+     * modification time.
      *
-     * The protection files the folder is prepared with are not stored files and are
-     * never listed, so a clean-up can never remove them.
+     * Anything else in the folder -- the protection files it is prepared with, or the
+     * files of whatever the folder is shared with -- is not listed, so a clean-up can
+     * never remove it.
      *
      * @return  array<string, array{size: int, mtime: int}>
      */
@@ -213,7 +269,7 @@ HTACCESS;
         $files = [];
 
         foreach (scandir($path) ?: [] as $name) {
-            if ($name === 'index.html' || !preg_match(Entries::STORED_NAME, $name) || !is_file($path . '/' . $name)) {
+            if (!preg_match(Entries::OWN_FILE, $name) || !is_file($path . '/' . $name)) {
                 continue;
             }
 
@@ -248,7 +304,7 @@ HTACCESS;
     /**
      * What the settings screen reports about the folder.
      *
-     * @return  array{configured: bool, path: string, exists: bool, writable: bool, creatable: bool, insideWebroot: bool, closed: bool}
+     * @return  array{configured: bool, path: string, forbidden: bool, exists: bool, writable: bool, creatable: bool, insideWebroot: bool, closed: bool}
      */
     public function status(): array
     {
@@ -258,12 +314,23 @@ HTACCESS;
         return [
             'configured'    => $path !== '',
             'path'          => $path,
+            'forbidden'     => $this->isForbidden(),
             'exists'        => $exists,
             'writable'      => $exists && is_writable($path),
             'creatable'     => !$exists && $path !== '' && is_writable($this->nearestExisting($path)),
             'insideWebroot' => $this->isInsideWebroot(),
             'closed'        => $exists && is_file($path . '/.htaccess'),
         ];
+    }
+
+    /**
+     * The site root, resolved, without a trailing separator.
+     *
+     * @return  string
+     */
+    private function realRoot(): string
+    {
+        return rtrim(realpath($this->siteRoot) ?: $this->siteRoot, '/\\');
     }
 
     /**

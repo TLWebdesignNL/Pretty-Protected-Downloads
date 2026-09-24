@@ -56,6 +56,8 @@ check('garbage decodes to nothing', Entries::decode('{not json') === [] && Entri
 group('The download name');
 check('the uploaded name is used when there is one', Entries::downloadName(['uuid' => $uuid, 'filename' => $file, 'original' => 'Annual Report 2026.pdf']) === 'Annual Report 2026.pdf');
 check('otherwise the stored name without its uuid', Entries::downloadName(['uuid' => $uuid, 'filename' => $file]) === 'annual-report.pdf');
+check('an uploaded name with another extension gets the stored one', Entries::downloadName(['uuid' => $uuid, 'filename' => $file, 'original' => 'report.html']) === 'report.html.pdf');
+check('extension case does not count as another extension', Entries::downloadName(['uuid' => $uuid, 'filename' => $file, 'original' => 'Report.PDF']) === 'Report.PDF');
 
 group('Files a save removes');
 $a = ['uuid' => $uuid, 'filename' => $file];
@@ -84,5 +86,6 @@ sort($expected);
 check('found in rows and in JSON strings inside rows', $names === $expected);
 check('a value that is plain text has none', Entries::filenamesIn('just some text') === []);
 check('a "filename" that is a path is not taken', Entries::filenamesIn([['filename' => '../../configuration.php']]) === []);
+check('nor one this plugin did not write', Entries::filenamesIn([['filename' => 'configuration.php']]) === []);
 
 finish();

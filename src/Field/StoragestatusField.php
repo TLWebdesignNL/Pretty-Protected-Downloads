@@ -13,6 +13,7 @@ namespace TLWeb\Plugin\Fields\Prettyprotecteddownloads\Field;
 use Joomla\CMS\Factory;
 use Joomla\CMS\Form\FormField;
 use Joomla\CMS\HTML\HTMLHelper;
+use Joomla\CMS\Http\HttpFactory;
 use Joomla\CMS\Language\Text;
 use Joomla\CMS\Session\Session;
 use Joomla\CMS\Uri\Uri;
@@ -52,6 +53,10 @@ class StoragestatusField extends FormField
             return $this->alert('danger', Text::_('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_STATUS_NOT_CONFIGURED'));
         }
 
+        if ($status['forbidden']) {
+            return $this->alert('danger', Text::sprintf('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_STATUS_FORBIDDEN', htmlspecialchars($status['path'], ENT_QUOTES, 'UTF-8')));
+        }
+
         $rows[] = [Text::_('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_STATUS_PATH'), '<code>' . htmlspecialchars($status['path'], ENT_QUOTES, 'UTF-8') . '</code>'];
 
         if ($status['exists']) {
@@ -73,6 +78,10 @@ class StoragestatusField extends FormField
                 : '<span class="badge bg-success">' . Text::_('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_STATUS_OUTSIDE') . '</span>',
         ];
 
+        if ($status['insideWebroot'] && $status['exists']) {
+            $rows[] = [Text::_('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_STATUS_DIRECT_ACCESS'), $this->directAccess($storage)];
+        }
+
         $maxBytes = Settings::maxBytes($params);
         $rows[]   = [Text::_('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_STATUS_MAX_UPLOAD'), $maxBytes > 0 ? HTMLHelper::_('number.bytes', $maxBytes) : '-'];
 
@@ -91,6 +100,30 @@ class StoragestatusField extends FormField
         $html[] = $this->cleanup($storage);
 
         return implode("\n", $html);
+    }
+
+    /**
+     * Whether the web server hands out the folder's files directly, found out by asking
+     * it for the empty index.html the folder was prepared with. An .htaccess on disk
+     * says nothing about a server that does not read it.
+     *
+     * @param   Storage  $storage  The storage.
+     *
+     * @return  string
+     */
+    private function directAccess(Storage $storage): string
+    {
+        $url = Uri::root() . str_replace('%2F', '/', rawurlencode((string) $storage->relativeToWebroot())) . '/index.html';
+
+        try {
+            $code = HttpFactory::getHttp()->get($url, [], 5)->code;
+        } catch (\Throwable $e) {
+            return '<span class="badge bg-secondary">' . Text::_('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_STATUS_DIRECT_UNKNOWN') . '</span>';
+        }
+
+        return $code === 200
+            ? '<span class="badge bg-danger">' . Text::_('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_STATUS_DIRECT_OPEN') . '</span>'
+            : '<span class="badge bg-success">' . Text::sprintf('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_STATUS_DIRECT_BLOCKED', $code) . '</span>';
     }
 
     /**
