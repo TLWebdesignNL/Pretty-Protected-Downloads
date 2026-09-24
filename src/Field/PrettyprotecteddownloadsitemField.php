@@ -60,7 +60,8 @@ class PrettyprotecteddownloadsitemField extends FormField
 
         $html   = [];
         $html[] = '<div class="ppd-control"'
-            . ' data-upload-url="' . $escape($endpoint . '&format=json&task=upload&' . Session::getFormToken() . '=1') . '"'
+            . ' data-upload-url="' . $escape($endpoint . '&format=json&task=upload') . '"'
+            . ' data-token="' . $escape(Session::getFormToken()) . '"'
             . ' data-preview-url="' . $escape($endpoint . '&format=raw&task=preview&uuid=__UUID__&filename=__FILE__') . '"'
             . ' data-max-bytes="' . $maxBytes . '"'
             . ' data-max-label="' . $escape($maxBytes > 0 ? HTMLHelper::_('number.bytes', $maxBytes) : '') . '"'

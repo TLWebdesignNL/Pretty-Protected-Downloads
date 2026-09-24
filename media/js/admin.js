@@ -143,8 +143,11 @@
       setStatus(control, text('UPLOADED', entry.original || file.name), 'success');
     });
 
+    // The form token goes in the header Session::checkToken() reads first, so it is
+    // never part of a URL that could end up in a server log.
     request.open('POST', control.dataset.uploadUrl);
     request.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+    request.setRequestHeader('X-CSRF-Token', control.dataset.token);
     request.send(data);
   };
 
@@ -182,7 +185,10 @@
     const result = button.parentElement.querySelector('.ppd-cleanup-result');
     button.disabled = true;
 
-    fetch(button.dataset.url, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+    fetch(button.dataset.url, {
+      method: 'POST',
+      headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-Token': button.dataset.token },
+    })
       .then((response) => response.json())
       .then((response) => {
         const data = response && response.success && Array.isArray(response.data) ? response.data[0] : null;

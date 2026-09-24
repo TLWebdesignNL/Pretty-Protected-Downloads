@@ -115,12 +115,13 @@ class StoragestatusField extends FormField
         Text::script('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_CLEANUP_CONFIRM');
         Text::script('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_JS_UPLOAD_FAILED');
 
-        $url   = Uri::base() . 'index.php?option=com_ajax&group=fields&plugin=prettyprotecteddownloads&format=json&task=cleanup&' . Session::getFormToken() . '=1';
+        $url   = Uri::base() . 'index.php?option=com_ajax&group=fields&plugin=prettyprotecteddownloads&format=json&task=cleanup';
         $bytes = array_sum(array_column($unused, 'size'));
 
         return '<div class="ppd-cleanup">'
             . '<p class="mb-2">' . Text::plural('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_CLEANUP_FOUND_N', \count($unused), HTMLHelper::_('number.bytes', $bytes)) . '</p>'
-            . '<button type="button" class="btn btn-outline-danger btn-sm ppd-cleanup-button" data-url="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '">'
+            . '<button type="button" class="btn btn-outline-danger btn-sm ppd-cleanup-button" data-url="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '"'
+            . ' data-token="' . htmlspecialchars(Session::getFormToken(), ENT_QUOTES, 'UTF-8') . '">'
             . '<span class="icon-trash me-1" aria-hidden="true"></span>' . Text::_('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_CLEANUP_BUTTON') . '</button>'
             . '<div class="ppd-cleanup-result small mt-2" role="status" aria-live="polite"></div>'
             . '</div>';
