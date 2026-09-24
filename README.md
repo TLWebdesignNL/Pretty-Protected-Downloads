@@ -1,15 +1,15 @@
 # Pretty Protected Downloads
 
-Pretty Protected Downloads is a Joomla custom field for articles that offers files for download without ever giving them a public URL. Files are stored outside the web root, and every download goes through Joomla, which checks that the visitor may see the article, its category, the field and its field group before a single byte is sent.
+Pretty Protected Downloads is a Joomla custom field that offers files for download without ever giving them a public URL. It works on articles, categories, contacts and user profiles. Files are stored outside the web root, and every download goes through Joomla, which checks that the visitor may see the item the field is on, the field and its field group before a single byte is sent.
 
 Use it for member documents, meeting minutes, reports for a closed group, price lists for logged-in customers: anything that should follow the access level of the article it belongs to, rather than being one guessed or shared link away from anyone.
 
 ## Features
 
-- A new field type, **Pretty Protected Downloads**, for articles: add as many files to a field as you like, each with its own button text, title, description, icon and button style.
+- A new field type, **Pretty Protected Downloads**, for articles, categories, contacts and user profiles: add as many files to a field as you like, each with its own button text, title, description, icon and button style.
 - Upload straight from the article form. A file uploads as soon as it is chosen, with a progress bar; the article cannot be saved while an upload is still running.
 - Files are stored **outside the web root**, or inside it in a folder closed with `.htaccess`.
-- Every download is checked against the article's publishing state and dates, the article and category access levels, and the field and field group access levels.
+- Every download is checked the way the item's own component checks its page: publishing state and dates, the item and category access levels, and on top of that the field and field group access levels.
 - Every download button carries a short-lived token bound to the visitor's session, so a file can only be fetched from a page that visitor was allowed to see.
 - Visitors download the file under the name it was uploaded with.
 - Three layouts, **Buttons**, **Cards** and **List**, each with an optional file type and size, and each overridable from your template.
@@ -30,7 +30,7 @@ Use it for member documents, meeting minutes, reports for a closed group, price 
 2. In Joomla Administrator, go to **System** → **Install** → **Extensions**.
 3. Upload and install the ZIP. The plugin is enabled on installation.
 4. Go to **System** → **Plugins**, open **Fields - Pretty Protected Downloads** and choose where the files are stored (see below). Save, and check the status.
-5. Go to **Content** → **Fields**, create a new field and choose the type **Pretty Protected Downloads**.
+5. Go to **Content** → **Fields** (or the Fields screen of Contacts, Users, or a component's Categories), create a new field and choose the type **Pretty Protected Downloads**.
 6. Edit an article, save it once if it is new, and add files.
 
 Latest release:
@@ -108,16 +108,18 @@ A download is a `POST` to `index.php?option=com_ajax&group=fields&plugin=prettyp
 
 1. The Joomla form token of the visitor's session is valid.
 2. The download token was issued to this session, for exactly this file, article and field, and has not expired.
-3. The article is published, within its publish up and publish down dates, and its access level is one of the visitor's.
-4. The category is published, and its access level is one of the visitor's.
-5. The field is published, and its access level, and that of its field group, is one of the visitor's.
-6. The file is listed in that field of that article, and its stored name matches the entry it belongs to.
+3. The visitor could see the item the field is on:
+   - an **article** or **contact** when it is published or archived, within its publish up and publish down dates, in a published category, and the visitor has both its access level and the category's;
+   - a **category** when Joomla's own category tree holds it for this visitor, which means it and every category above it are published and accessible;
+   - a **user profile** only for the user it belongs to, when the account is not blocked.
+4. The field is published, and its access level, and that of its field group, is one of the visitor's.
+5. The file is listed in that field of that item, and its stored name matches the entry it belongs to.
 
 Anything else sends the visitor back to the page with a message. The file is sent as an attachment, under the name it was uploaded with but always with the stored file's own extension, with a content type taken from that extension rather than sniffed from the bytes, with `X-Content-Type-Options: nosniff` and a sandboxing Content Security Policy, and is never cached by the browser.
 
 The plugin never reads, lists or deletes anything in the storage folder that it did not write itself. Its files all end in the uuid they were given on upload, so even a folder shared with other files comes to no harm from the clean-up.
 
-Editors upload through the same endpoint (`task=upload`), which requires the form token and edit permission on the article: `core.edit`, or `core.edit.own` on their own articles.
+Editors upload through the same endpoint (`task=upload`), which requires the form token and edit permission on the item: `core.edit`, or `core.edit.own` on their own items. A user profile is edited by its owner, or by anyone who may edit users.
 
 ## Clean-up
 
@@ -125,7 +127,8 @@ Uploads become part of an article when the article is saved. A file that was upl
 
 ## Limitations
 
-- **Articles only.** The access rules checked on download are those of articles and their categories. A field of this type in another context (contacts, users, categories) shows a notice instead of the upload control.
+- **Supported contexts.** Articles, categories (of any component), contacts and user profiles. A field of this type in another component's context shows a notice instead of the upload control, and nothing is ever served for it, because the plugin has no rule for who may see such an item.
+- **User profiles.** A profile's files are visible to that user alone, on their own profile page. If you put the field on the frontend profile edit form, every registered user can upload files to their own profile.
 - **Page caching.** The download tokens are issued when a page is rendered. With the *System - Page Cache* plugin on, a cached page hands out tokens of another session, and its downloads fail. Exclude the pages with downloads from the page cache, or keep the cache off.
 - **Article versions.** Restoring an older version of an article from its history brings back its file entries, but not files that were deleted in the meantime.
 - **Uninstalling** leaves the stored files in their folder. They are your site's documents, not the plugin's.

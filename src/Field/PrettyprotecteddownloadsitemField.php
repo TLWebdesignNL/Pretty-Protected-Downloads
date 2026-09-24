@@ -39,6 +39,7 @@ class PrettyprotecteddownloadsitemField extends FormField
      */
     protected function getInput()
     {
+        $context  = (string) ($this->element['context'] ?? '');
         $itemId   = (int) ($this->element['itemid'] ?? 0);
         $field    = (string) ($this->element['targetfield'] ?? '');
         $uuid     = (string) $this->form->getValue('uuid', null, '');
@@ -48,7 +49,7 @@ class PrettyprotecteddownloadsitemField extends FormField
         $maxBytes = Settings::maxBytes($params);
         $allowed  = Settings::allowedExtensions($params);
         $endpoint = Uri::base() . 'index.php?option=com_ajax&group=fields&plugin=prettyprotecteddownloads'
-            . '&item=' . $itemId . '&field=' . rawurlencode($field);
+            . '&context=' . rawurlencode($context) . '&item=' . $itemId . '&field=' . rawurlencode($field);
 
         $this->loadAssets();
 

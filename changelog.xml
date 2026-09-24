@@ -9,7 +9,7 @@
             <item>Every download button carries a short-lived token bound to the visitor's session, so a file can only be fetched from a page the visitor was allowed to see.</item>
             <item>Upload straight from the article form, with progress, a per-file button text, title, description, icon and button style.</item>
             <item>Three display layouts, buttons, cards and list, each with an optional file type and size, and each overridable from the template.</item>
-            <item>Works inside subform fields.</item>
+            <item>Works on articles, categories, contacts and user profiles, and inside subform fields.</item>
             <item>Allowed file types and a maximum file size; scripts, web pages and SVG images are always refused.</item>
             <item>Visitors download the file under the name it was uploaded with.</item>
             <item>A storage status on the plugin settings screen, and a button that deletes stored files no field uses any more.</item>

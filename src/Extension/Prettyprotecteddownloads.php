@@ -14,7 +14,8 @@ use Joomla\CMS\Event\CustomFields\BeforePrepareFieldEvent;
 use Joomla\CMS\Event\Model\AfterSaveEvent;
 use Joomla\CMS\Event\Model\BeforeSaveEvent;
 use Joomla\CMS\Event\Plugin\AjaxEvent;
-use Joomla\CMS\Factory;
+use Joomla\CMS\Event\User\AfterSaveEvent as UserAfterSaveEvent;
+use Joomla\CMS\Event\User\BeforeSaveEvent as UserBeforeSaveEvent;
 use Joomla\CMS\Filter\InputFilter;
 use Joomla\CMS\Form\Form;
 use Joomla\CMS\Form\FormHelper;
@@ -24,6 +25,7 @@ use Joomla\CMS\Log\Log;
 use Joomla\CMS\Session\Session;
 use Joomla\CMS\Uri\Uri;
 use Joomla\CMS\User\User;
+use Joomla\Component\Fields\Administrator\Helper\FieldsHelper;
 use Joomla\Component\Fields\Administrator\Plugin\FieldsPlugin;
 use Joomla\Database\DatabaseAwareInterface;
 use Joomla\Database\DatabaseAwareTrait;
@@ -47,16 +49,19 @@ use TLWeb\Plugin\Fields\Prettyprotecteddownloads\Helper\Storage;
  *
  *   task=upload    POST, editors: stores a file and returns its entry
  *   task=preview   GET, editors: the file as the editor sees it in the form
- *   task=download  POST, visitors: the file, after the article, category, field and
- *                  field group access checks and a download token check
+ *   task=download  POST, visitors: the file, after the item, field and field group
+ *                  access checks and a download token check
  *   task=cleanup   POST, administrators: deletes stored files no field names any more
+ *
+ * Every request names the fields context the item belongs to, since who may see an
+ * item is decided per context; Repository::CONTEXTS lists the supported ones.
  */
 final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberInterface, DatabaseAwareInterface
 {
     use DatabaseAwareTrait;
 
     /**
-     * How long an upload may wait for its article to be saved before a clean-up may
+     * How long an upload may wait for its item to be saved before a clean-up may
      * treat it as unused.
      */
     public const CLEANUP_GRACE = 86400;
@@ -91,10 +96,10 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
     ];
 
     /**
-     * Stored files an article save removed from its fields, by article id, deleted once
-     * the save has gone through.
+     * Stored files a save removed from an item's fields, by context and item id,
+     * deleted once the save has gone through.
      *
-     * @var  array<int, string[]>
+     * @var  array<string, string[]>
      */
     private array $pendingDeletes = [];
 
@@ -107,12 +112,15 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
             'onCustomFieldsBeforePrepareField'  => 'beforePrepareField',
             'onContentBeforeSave'               => 'beforeSave',
             'onContentAfterSave'                => 'afterSave',
+            'onUserBeforeSave'                  => 'beforeUserSave',
+            'onUserAfterSave'                   => 'afterUserSave',
             'onAjaxPrettyprotecteddownloads'    => 'onAjax',
         ]);
     }
 
     /**
-     * Make the form field classes of this plugin available to the article form.
+     * Make the form field classes of this plugin available to the item form, and tell
+     * the form field which context its item belongs to.
      *
      * @param   object       $field   The field.
      * @param   \DOMElement  $parent  The fieldset element.
@@ -124,7 +132,13 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
     {
         FormHelper::addFieldPrefix('TLWeb\\Plugin\\Fields\\Prettyprotecteddownloads\\Field');
 
-        return parent::onCustomFieldsPrepareDom($field, $parent, $form);
+        $node = parent::onCustomFieldsPrepareDom($field, $parent, $form);
+
+        if ($node instanceof \DOMElement && !empty($field->context)) {
+            $node->setAttribute('context', (string) $field->context);
+        }
+
+        return $node;
     }
 
     /**
@@ -146,7 +160,7 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
     // ── Saving ────────────────────────────────────────────────────────────────
 
     /**
-     * Note which stored files this save takes out of the article's fields.
+     * Note which stored files this save takes out of the item's fields.
      *
      * @param   BeforeSaveEvent  $event  The event.
      *
@@ -154,18 +168,81 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
      */
     public function beforeSave(BeforeSaveEvent $event): void
     {
-        $itemId = (int) ($event->getItem()->id ?? 0);
-        $data   = $event->getData();
+        $item    = $event->getItem();
+        $data    = $event->getData();
+        $context = $this->fieldsContext($event->getContext(), $item);
 
-        if ($event->getContext() !== Repository::CONTEXT || $itemId <= 0 || !\is_array($data['com_fields'] ?? null)) {
+        if ($context !== null && \is_array($data) && \is_array($data['com_fields'] ?? null)) {
+            $this->noteRemoved($context, (int) ($item->id ?? 0), $data['com_fields']);
+        }
+    }
+
+    /**
+     * Delete the files the save removed, unless another item still lists them.
+     *
+     * @param   AfterSaveEvent  $event  The event.
+     *
+     * @return  void
+     */
+    public function afterSave(AfterSaveEvent $event): void
+    {
+        $item    = $event->getItem();
+        $context = $this->fieldsContext($event->getContext(), $item);
+
+        if ($context !== null) {
+            $this->deleteRemoved($context, (int) ($item->id ?? 0));
+        }
+    }
+
+    /**
+     * The same for a user account, whose profile fields are saved through the user
+     * events rather than the content events.
+     *
+     * @param   UserBeforeSaveEvent  $event  The event.
+     *
+     * @return  void
+     */
+    public function beforeUserSave(UserBeforeSaveEvent $event): void
+    {
+        $data = $event->getData();
+
+        if (\is_array($data['com_fields'] ?? null)) {
+            $this->noteRemoved('com_users.user', (int) ($event->getUser()['id'] ?? 0), $data['com_fields']);
+        }
+    }
+
+    /**
+     * @param   UserAfterSaveEvent  $event  The event.
+     *
+     * @return  void
+     */
+    public function afterUserSave(UserAfterSaveEvent $event): void
+    {
+        if ($event->getSavingResult()) {
+            $this->deleteRemoved('com_users.user', (int) ($event->getUser()['id'] ?? 0));
+        }
+    }
+
+    /**
+     * Compare what an item's fields hold with what is being saved, and remember the
+     * stored files that are on their way out.
+     *
+     * @param   string  $context  The fields context.
+     * @param   int     $itemId   The item id.
+     * @param   array   $posted   The posted com_fields values.
+     *
+     * @return  void
+     */
+    private function noteRemoved(string $context, int $itemId, array $posted): void
+    {
+        if ($itemId <= 0) {
             return;
         }
 
-        $posted     = $data['com_fields'];
         $repository = $this->repository();
         $removed    = [];
 
-        foreach ($repository->fieldsWithValues($itemId) as $field) {
+        foreach ($repository->fieldsWithValues($context, $itemId) as $field) {
             if (\array_key_exists($field->name, $posted)) {
                 array_push($removed, ...Entries::removedFilenames(Entries::decode($field->value ?? ''), Entries::decode($posted[$field->name])));
             }
@@ -173,7 +250,7 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
 
         $fieldIds = $repository->fieldIds();
 
-        foreach ($repository->subformsWithValues($itemId) as $subform) {
+        foreach ($repository->subformsWithValues($context, $itemId) as $subform) {
             if (!\array_key_exists($subform->name, $posted)) {
                 continue;
             }
@@ -189,35 +266,62 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
         }
 
         if ($removed !== []) {
-            $this->pendingDeletes[$itemId] = array_values(array_unique($removed));
+            $this->pendingDeletes[$context . ':' . $itemId] = array_values(array_unique($removed));
         }
     }
 
     /**
-     * Delete the files the save removed, unless another item still lists them.
+     * Delete the files noted for an item, unless another item still lists them.
      *
-     * @param   AfterSaveEvent  $event  The event.
+     * @param   string  $context  The fields context.
+     * @param   int     $itemId   The item id.
      *
      * @return  void
      */
-    public function afterSave(AfterSaveEvent $event): void
+    private function deleteRemoved(string $context, int $itemId): void
     {
-        $itemId = (int) ($event->getItem()->id ?? 0);
+        $key = $context . ':' . $itemId;
 
-        if ($event->getContext() !== Repository::CONTEXT || empty($this->pendingDeletes[$itemId])) {
+        if (empty($this->pendingDeletes[$key])) {
             return;
         }
 
         $referenced = $this->repository()->referencedFilenames();
         $storage    = Storage::fromParams($this->params);
 
-        foreach ($this->pendingDeletes[$itemId] as $filename) {
+        foreach ($this->pendingDeletes[$key] as $filename) {
             if (!isset($referenced[$filename])) {
                 $storage->delete($filename);
             }
         }
 
-        unset($this->pendingDeletes[$itemId]);
+        unset($this->pendingDeletes[$key]);
+    }
+
+    /**
+     * The fields context a save event belongs to, or null when it is not a supported
+     * one. Joomla names the same thing differently per screen (an article saved on the
+     * site is "com_content.form", a category "com_categories.category"), so the names
+     * are normalised the way the fields system itself does it.
+     *
+     * @param   string  $context  The event context.
+     * @param   mixed   $item     The item being saved.
+     *
+     * @return  ?string
+     */
+    private function fieldsContext(string $context, mixed $item): ?string
+    {
+        if (str_starts_with($context, 'com_categories.category')) {
+            $context = (string) ($item->extension ?? '') . '.categories';
+        }
+
+        $parts = FieldsHelper::extract($context, $item);
+
+        if (\is_array($parts) && \count($parts) === 2) {
+            $context = $parts[0] . '.' . $parts[1];
+        }
+
+        return Repository::supports($context) ? $context : null;
     }
 
     // ── com_ajax ──────────────────────────────────────────────────────────────
@@ -242,9 +346,9 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
     }
 
     /**
-     * Store an upload for an article's field and return its entry.
+     * Store an upload for an item's field and return its entry.
      *
-     * The entry is not part of the article until the editor saves it; until then the
+     * The entry is not part of the item until the editor saves it; until then the
      * file belongs to nothing and a clean-up leaves it alone for a day.
      *
      * @return  array
@@ -253,23 +357,24 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
      */
     private function upload(): array
     {
-        $app    = $this->getApplication();
-        $input  = $app->getInput();
-        $user   = $app->getIdentity();
-        $itemId = $input->getInt('item', 0);
-        $field  = $input->getString('field', '');
+        $app     = $this->getApplication();
+        $input   = $app->getInput();
+        $user    = $app->getIdentity();
+        $context = $input->getString('context', '');
+        $itemId  = $input->getInt('item', 0);
+        $field   = $input->getString('field', '');
 
         if (!Session::checkToken()) {
             throw new \RuntimeException(Text::_('JINVALID_TOKEN'), 403);
         }
 
-        $article = $itemId > 0 ? $this->repository()->article($itemId) : null;
+        $item = $user && !$user->guest ? $this->repository()->item($context, $itemId, $user) : null;
 
-        if (!$user || $user->guest || !$article || !$this->canEdit($article, $user)) {
+        if (!$item || !$item->editable) {
             throw new \RuntimeException(Text::_('JERROR_ALERTNOAUTHOR'), 403);
         }
 
-        if ($field === '' || !$this->repository()->field($field, $itemId)) {
+        if ($field === '' || !$this->repository()->field($context, $field, $itemId)) {
             throw new \RuntimeException(Text::_('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_ERROR_FIELD_NOT_FOUND'), 400);
         }
 
@@ -344,9 +449,9 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
     /**
      * Delete the file an upload replaced, when no saved item lists it.
      *
-     * A file that was saved with the article stays until the article is saved without
-     * it; one that was uploaded and replaced before any save belongs to nothing and
-     * would otherwise wait for a clean-up.
+     * A file that was saved with the item stays until the item is saved without it;
+     * one that was uploaded and replaced before any save belongs to nothing and would
+     * otherwise wait for a clean-up.
      *
      * @param   Storage  $storage   The storage.
      * @param   string   $uuid      The replaced entry uuid.
@@ -362,10 +467,10 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
     }
 
     /**
-     * Send an editor the file behind an entry of the article they are editing.
+     * Send an editor the file behind an entry of the item they are editing.
      *
-     * An upload the article has not been saved with yet is not listed in the field, so
-     * it can be previewed as long as no item lists it at all.
+     * An upload the item has not been saved with yet is not listed in the field, so it
+     * can be previewed as long as no item lists it at all.
      *
      * @return  never
      */
@@ -374,16 +479,17 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
         $app      = $this->getApplication();
         $input    = $app->getInput();
         $user     = $app->getIdentity();
+        $context  = $input->getString('context', '');
         $itemId   = $input->getInt('item', 0);
         $uuid     = $input->getString('uuid', '');
         $filename = $input->getString('filename', '');
-        $article  = $itemId > 0 ? $this->repository()->article($itemId) : null;
+        $item     = $user && !$user->guest ? $this->repository()->item($context, $itemId, $user) : null;
 
-        if (!$user || $user->guest || !$article || !$this->canEdit($article, $user)) {
+        if (!$item || !$item->editable) {
             $this->fail(403);
         }
 
-        $field = $this->repository()->field($input->getString('field', ''), $itemId);
+        $field = $this->repository()->field($context, $input->getString('field', ''), $itemId);
         $entry = $field ? $this->find($field->entries, $uuid) : null;
 
         if (!$entry && Entries::belongsTogether($uuid, $filename) && !isset($this->repository()->referencedFilenames()[$filename])) {
@@ -406,13 +512,14 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
      */
     private function download(): never
     {
-        $app    = $this->getApplication();
-        $input  = $app->getInput();
-        $user   = $app->getIdentity() ?: new User();
-        $uuid   = $input->post->getString('uuid', '');
-        $itemId = $input->post->getInt('item', 0);
-        $name   = $input->post->getString('field', '');
-        $token  = $input->post->getString('download_token', '');
+        $app     = $this->getApplication();
+        $input   = $app->getInput();
+        $user    = $app->getIdentity() ?: new User();
+        $context = $input->post->getString('context', '');
+        $uuid    = $input->post->getString('uuid', '');
+        $itemId  = $input->post->getInt('item', 0);
+        $name    = $input->post->getString('field', '');
+        $token   = $input->post->getString('download_token', '');
 
         if (strtoupper($input->server->getString('REQUEST_METHOD', '')) !== 'POST' || !Session::checkToken('post')) {
             $this->refuse('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_ERROR_EXPIRED');
@@ -420,18 +527,18 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
 
         $tokens = new DownloadTokens($app->getSession(), Settings::tokenLifetime($this->params));
 
-        if ($uuid === '' || $itemId <= 0 || $name === '' || !$tokens->isValid($token, $uuid, $itemId, $name)) {
+        if ($uuid === '' || $itemId <= 0 || $name === '' || !$tokens->isValid($token, $uuid, $context, $itemId, $name)) {
             $this->refuse('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_ERROR_EXPIRED');
         }
 
-        $levels  = $user->getAuthorisedViewLevels();
-        $article = $this->repository()->article($itemId);
+        $item = $this->repository()->item($context, $itemId, $user);
 
-        if (!$article || !$this->isVisible($article, $levels)) {
+        if (!$item || !$item->visible) {
             $this->refuse('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_ERROR_NO_ACCESS');
         }
 
-        $field = $this->repository()->field($name, $itemId);
+        $levels = $user->getAuthorisedViewLevels();
+        $field  = $this->repository()->field($context, $name, $itemId);
 
         if (
             !$field
@@ -492,44 +599,6 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
-
-    /**
-     * Whether the article, and its category, are published and open to these view
-     * levels. This is the same test com_content applies before it shows the article,
-     * so an archived article keeps its downloads and an unpublished one does not.
-     *
-     * @param   object  $article  The article row.
-     * @param   int[]   $levels   The visitor's view levels.
-     *
-     * @return  bool
-     */
-    private function isVisible(object $article, array $levels): bool
-    {
-        $now = Factory::getDate()->toSql();
-
-        return \in_array((int) $article->state, [1, 2], true)
-            && (int) $article->category_published === 1
-            && (empty($article->publish_up) || $article->publish_up <= $now)
-            && (empty($article->publish_down) || $article->publish_down > $now)
-            && \in_array((int) $article->access, $levels, true)
-            && \in_array((int) $article->category_access, $levels, true);
-    }
-
-    /**
-     * Whether a user may edit an article, as the article form itself decides it.
-     *
-     * @param   object  $article  The article row.
-     * @param   User    $user     The user.
-     *
-     * @return  bool
-     */
-    private function canEdit(object $article, User $user): bool
-    {
-        $asset = 'com_content.article.' . (int) $article->id;
-
-        return $user->authorise('core.edit', $asset)
-            || ((int) $article->created_by === (int) $user->id && $user->authorise('core.edit.own', $asset));
-    }
 
     /**
      * The entry with this uuid, or null.
@@ -621,6 +690,6 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
      */
     private function repository(): Repository
     {
-        return new Repository($this->getDatabase());
+        return new Repository($this->getDatabase(), $this->getApplication());
     }
 }

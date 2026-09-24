@@ -48,8 +48,9 @@ class PrettyprotecteddownloadsField extends SubformField
             return false;
         }
 
-        $itemId = $this->itemId();
-        $field  = htmlspecialchars((string) $this->fieldname, ENT_QUOTES | ENT_XML1, 'UTF-8');
+        $itemId  = $this->itemId();
+        $field   = htmlspecialchars((string) $this->fieldname, ENT_QUOTES | ENT_XML1, 'UTF-8');
+        $context = htmlspecialchars((string) ($this->element['context'] ?? ''), ENT_QUOTES | ENT_XML1, 'UTF-8');
         $label  = static fn (string $key): string => htmlspecialchars(Text::_('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_ENTRY_' . $key), ENT_QUOTES | ENT_XML1, 'UTF-8');
 
         $this->multiple   = true;
@@ -67,6 +68,7 @@ class PrettyprotecteddownloadsField extends SubformField
         name="file_control"
         type="prettyprotecteddownloadsitem"
         label="{$label('FILE_LABEL')}"
+        context="{$context}"
         itemid="{$itemId}"
         targetfield="{$field}"
     />
@@ -86,10 +88,10 @@ XML;
      */
     protected function getInput()
     {
-        // Judged by the component rather than the form name, because inside a subform
-        // field the form is named after the subform, not after the article.
-        if (Factory::getApplication()->getInput()->getCmd('option') !== strtok(Repository::CONTEXT, '.')) {
-            return '<div class="alert alert-warning">' . Text::_('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_ONLY_ARTICLES') . '</div>';
+        // The context is the field's own, set on the form element by the plugin, so it
+        // is known inside a subform as well.
+        if (!Repository::supports((string) ($this->element['context'] ?? ''))) {
+            return '<div class="alert alert-warning">' . Text::_('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_UNSUPPORTED_CONTEXT') . '</div>';
         }
 
         return parent::getInput();
@@ -120,7 +122,7 @@ XML;
     }
 
     /**
-     * The article being edited, or 0 for one that has not been saved yet.
+     * The item being edited, or 0 for one that has not been saved yet.
      *
      * @return  int
      */
@@ -134,6 +136,6 @@ XML;
 
         $input = Factory::getApplication()->getInput();
 
-        return (int) ($input->get('jform', [], 'array')['id'] ?? 0) ?: $input->getInt('a_id', $input->getInt('id', 0));
+        return (int) ($input->get('jform', [], 'array')['id'] ?? 0) ?: $input->getInt('a_id', $input->getInt('user_id', $input->getInt('id', 0)));
     }
 }

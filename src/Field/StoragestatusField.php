@@ -135,7 +135,7 @@ class StoragestatusField extends FormField
      */
     private function cleanup(Storage $storage): string
     {
-        $repository = new Repository(Factory::getContainer()->get(DatabaseInterface::class));
+        $repository = new Repository(Factory::getContainer()->get(DatabaseInterface::class), Factory::getApplication());
         $unused     = $storage->unused($repository->referencedFilenames(), time() - Prettyprotecteddownloads::CLEANUP_GRACE);
 
         if ($unused === []) {

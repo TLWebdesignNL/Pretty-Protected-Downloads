@@ -13,8 +13,9 @@
  * templates/{template}/html/plg_fields_prettyprotecteddownloads/prettyprotecteddownloads/.
  *
  * Available here (from FieldsPlugin::onCustomFieldsPrepareField):
+ *   $context      the fields context, such as com_content.article
  *   $field        the field; $field->value is its list of entries
- *   $item         the article
+ *   $item         the item the field is on
  *   $fieldParams  the plugin parameters merged with the field's own (Registry)
  *
  * Available to the display layout:
@@ -61,10 +62,11 @@ foreach ($entries as $entry) {
 
     $name  = Entries::downloadName($entry);
     $file  = $showMeta ? $storage->locate($entry['filename']) : null;
-    $token = $tokens->issue($entry['uuid'], $itemId, $field->name);
+    $token = $tokens->issue($entry['uuid'], (string) $context, $itemId, $field->name);
 
     $hidden = [
         'uuid'           => $entry['uuid'],
+        'context'        => (string) $context,
         'item'           => $itemId,
         'field'          => $field->name,
         'download_token' => $token,

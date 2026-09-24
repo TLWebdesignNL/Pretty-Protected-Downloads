@@ -18,10 +18,11 @@ namespace TLWeb\Plugin\Fields\Prettyprotecteddownloads\Helper;
  * Short-lived tokens that tie a download button to the visitor it was shown to.
  *
  * A token is issued for every file a page renders and kept in the visitor's session,
- * bound to the file, the item and the field. A download is only served for a token
- * this session was given, so a file can not be fetched by guessing or sharing its
- * identifiers, only from a page the visitor was allowed to see. The access check
- * on the download itself runs as well; the token is the second lock, not the only one.
+ * bound to the file, the item, its context and the field. A download is only served
+ * for a token this session was given, so a file can not be fetched by guessing or
+ * sharing its identifiers, only from a page the visitor was allowed to see. The
+ * access check on the download itself runs as well; the token is the second lock,
+ * not the only one.
  *
  * A token stays valid until it expires rather than being spent on first use, so a
  * second click, or a download the browser retries, still works.
@@ -48,14 +49,15 @@ final class DownloadTokens
     /**
      * Issue a token for one file.
      *
-     * @param   string    $uuid    The entry uuid.
-     * @param   int       $itemId  The item the field belongs to.
-     * @param   string    $field   The field name.
-     * @param   ?int      $now     The time, for tests.
+     * @param   string  $uuid     The entry uuid.
+     * @param   string  $context  The fields context of the item.
+     * @param   int     $itemId   The item the field belongs to.
+     * @param   string  $field    The field name.
+     * @param   ?int    $now      The time, for tests.
      *
      * @return  string
      */
-    public function issue(string $uuid, int $itemId, string $field, ?int $now = null): string
+    public function issue(string $uuid, string $context, int $itemId, string $field, ?int $now = null): string
     {
         $now    = $now ?? time();
         $tokens = $this->live($now);
@@ -63,6 +65,7 @@ final class DownloadTokens
 
         $tokens[$token] = [
             'uuid'    => $uuid,
+            'context' => $context,
             'item'    => $itemId,
             'field'   => $field,
             'expires' => $now + $this->lifetime,
@@ -80,20 +83,22 @@ final class DownloadTokens
     /**
      * Whether a token was issued to this session for exactly this file, and is still valid.
      *
-     * @param   string  $token   The token.
-     * @param   string  $uuid    The entry uuid.
-     * @param   int     $itemId  The item.
-     * @param   string  $field   The field name.
-     * @param   ?int    $now     The time, for tests.
+     * @param   string  $token    The token.
+     * @param   string  $uuid     The entry uuid.
+     * @param   string  $context  The fields context of the item.
+     * @param   int     $itemId   The item.
+     * @param   string  $field    The field name.
+     * @param   ?int    $now      The time, for tests.
      *
      * @return  bool
      */
-    public function isValid(string $token, string $uuid, int $itemId, string $field, ?int $now = null): bool
+    public function isValid(string $token, string $uuid, string $context, int $itemId, string $field, ?int $now = null): bool
     {
         $data = $this->live($now ?? time())[$token] ?? null;
 
         return \is_array($data)
             && hash_equals((string) ($data['uuid'] ?? ''), $uuid)
+            && (string) ($data['context'] ?? '') === $context
             && (int) ($data['item'] ?? 0) === $itemId
             && (string) ($data['field'] ?? '') === $field;
     }
