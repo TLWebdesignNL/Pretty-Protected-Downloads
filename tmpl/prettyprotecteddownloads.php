@@ -20,18 +20,23 @@
  *
  * Available to the display layout:
  *   $downloads    list of objects with: title, description (plain text), button, icon,
- *                 class, name (the name the file downloads as), extension, size (bytes,
- *                 or null when not shown), hidden (the form's hidden inputs, as HTML;
- *                 keep them in the form, download.js finds its forms by them)
+ *                 class, name (the name the file downloads as), label (the title, or
+ *                 the name when there is none), extension, size (bytes, or null when
+ *                 not shown), meta (type and size as text, or '' when not shown),
+ *                 hidden (the form's hidden inputs, as HTML; keep them in the form,
+ *                 download.js finds its forms by them)
  *   $actionUrl    where each download form posts to
  *   $buttonClass  the extra button classes set on the field
  *   $cardClass    the extra card classes set on the field
+ *   $headingLevel the element each card title is: h2 to h6, or p for no heading
  */
 
 \defined('_JEXEC') or die;
 
 use Joomla\CMS\Document\HtmlDocument;
 use Joomla\CMS\Factory;
+use Joomla\CMS\HTML\HTMLHelper;
+use Joomla\CMS\Language\Text;
 use Joomla\CMS\Plugin\PluginHelper;
 use Joomla\CMS\Session\Session;
 use Joomla\CMS\Uri\Uri;
@@ -60,6 +65,9 @@ $buttonClass = trim((string) $fieldParams->get('button_class', ''));
 $cardClass   = trim((string) $fieldParams->get('card_class', ''));
 $downloads   = [];
 
+$headingLevel = (string) $fieldParams->get('heading_level', 'h3');
+$headingLevel = \in_array($headingLevel, ['h2', 'h3', 'h4', 'h5', 'h6', 'p'], true) ? $headingLevel : 'h3';
+
 foreach ($entries as $entry) {
     if (!Entries::belongsTogether((string) ($entry['uuid'] ?? ''), (string) ($entry['filename'] ?? ''))) {
         continue;
@@ -77,15 +85,22 @@ foreach ($entries as $entry) {
         $formToken => 1,
     ];
 
+    $title = trim((string) ($entry['title'] ?? ''));
+    $size  = $file !== null ? (int) filesize($file) : null;
+
     $downloads[] = (object) [
-        'title'       => trim((string) ($entry['title'] ?? '')),
+        'title'       => $title,
         'description' => trim((string) ($entry['description'] ?? '')),
         'button'      => trim((string) ($entry['button'] ?? '')),
         'icon'        => trim((string) ($entry['icon'] ?? '')),
         'class'       => trim((string) ($entry['class'] ?? '')) ?: 'btn-primary',
         'name'        => $name,
+        'label'       => $title ?: $name,
         'extension'   => Entries::extension($name),
-        'size'        => $file !== null ? (int) filesize($file) : null,
+        'size'        => $size,
+        'meta'        => $size !== null
+            ? Text::sprintf('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_META', strtoupper(Entries::extension($name)), HTMLHelper::_('number.bytes', $size))
+            : '',
         // The download token is fetched fresh when the button is pressed (download.js),
         // since a cached page carries the tokens of whoever it was rendered for. The
         // one rendered here is only sent when scripts do not run; it comes last, so it

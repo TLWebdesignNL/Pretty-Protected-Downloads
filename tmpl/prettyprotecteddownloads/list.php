@@ -13,7 +13,6 @@
 
 \defined('_JEXEC') or die;
 
-use Joomla\CMS\HTML\HTMLHelper;
 use Joomla\CMS\Language\Text;
 
 $e = static fn (string $value): string => htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
@@ -25,11 +24,9 @@ $e = static fn (string $value): string => htmlspecialchars($value, ENT_QUOTES, '
                 <?php if ($download->icon !== '') : ?>
                     <span class="<?php echo $e($download->icon); ?> me-1" aria-hidden="true"></span>
                 <?php endif; ?>
-                <span class="fw-semibold"><?php echo $e($download->title ?: $download->name); ?></span>
-                <?php if ($download->size !== null) : ?>
-                    <span class="small text-body-secondary ms-1">
-                        (<?php echo $e(Text::sprintf('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_META', strtoupper($download->extension), HTMLHelper::_('number.bytes', $download->size))); ?>)
-                    </span>
+                <span class="fw-semibold"><?php echo $e($download->label); ?></span>
+                <?php if ($download->meta !== '') : ?>
+                    <span class="small text-body-secondary ms-1">(<?php echo $e($download->meta); ?>)</span>
                 <?php endif; ?>
                 <?php if ($download->description !== '') : ?>
                     <div class="small"><?php echo nl2br($e($download->description)); ?></div>
@@ -39,6 +36,7 @@ $e = static fn (string $value): string => htmlspecialchars($value, ENT_QUOTES, '
                 <?php echo $download->hidden; ?>
                 <button type="submit" class="btn btn-sm <?php echo $e($download->class . ' ' . $buttonClass); ?>">
                     <?php echo $e($download->button ?: Text::_('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_DOWNLOAD')); ?>
+                    <span class="visually-hidden">, <?php echo $e($download->label); ?></span>
                 </button>
             </form>
         </li>

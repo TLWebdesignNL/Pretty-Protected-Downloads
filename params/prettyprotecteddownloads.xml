@@ -34,6 +34,22 @@
                 filter="string"
             />
             <field
+                name="heading_level"
+                type="list"
+                label="PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_PARAMS_HEADING_LEVEL_LABEL"
+                description="PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_PARAMS_HEADING_LEVEL_DESC"
+                default="h3"
+                showon="display_mode:cards"
+                validate="options"
+            >
+                <option value="h2">PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_PARAMS_HEADING_LEVEL_H2</option>
+                <option value="h3">PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_PARAMS_HEADING_LEVEL_H3</option>
+                <option value="h4">PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_PARAMS_HEADING_LEVEL_H4</option>
+                <option value="h5">PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_PARAMS_HEADING_LEVEL_H5</option>
+                <option value="h6">PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_PARAMS_HEADING_LEVEL_H6</option>
+                <option value="p">PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_PARAMS_HEADING_LEVEL_NONE</option>
+            </field>
+            <field
                 name="button_class"
                 type="text"
                 label="PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_PARAMS_BUTTON_CLASS_LABEL"

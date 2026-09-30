@@ -13,7 +13,6 @@
 
 \defined('_JEXEC') or die;
 
-use Joomla\CMS\HTML\HTMLHelper;
 use Joomla\CMS\Language\Text;
 
 $e = static fn (string $value): string => htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
@@ -23,11 +22,9 @@ $e = static fn (string $value): string => htmlspecialchars($value, ENT_QUOTES, '
         <div class="col">
             <div class="card h-100 <?php echo $e($cardClass); ?>">
                 <div class="card-body d-flex flex-column">
-                    <h3 class="h5 card-title"><?php echo $e($download->title ?: $download->name); ?></h3>
-                    <?php if ($download->size !== null) : ?>
-                        <p class="card-subtitle small text-body-secondary mb-2">
-                            <?php echo $e(Text::sprintf('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_META', strtoupper($download->extension), HTMLHelper::_('number.bytes', $download->size))); ?>
-                        </p>
+                    <<?php echo $headingLevel; ?> class="h5 card-title"><?php echo $e($download->label); ?></<?php echo $headingLevel; ?>>
+                    <?php if ($download->meta !== '') : ?>
+                        <p class="card-subtitle small text-body-secondary mb-2"><?php echo $e($download->meta); ?></p>
                     <?php endif; ?>
                     <?php if ($download->description !== '') : ?>
                         <p class="card-text"><?php echo nl2br($e($download->description)); ?></p>
@@ -39,6 +36,7 @@ $e = static fn (string $value): string => htmlspecialchars($value, ENT_QUOTES, '
                                 <span class="<?php echo $e($download->icon); ?> me-1" aria-hidden="true"></span>
                             <?php endif; ?>
                             <?php echo $e($download->button ?: Text::_('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_DOWNLOAD')); ?>
+                            <span class="visually-hidden">, <?php echo $e($download->label); ?></span>
                         </button>
                     </form>
                 </div>
