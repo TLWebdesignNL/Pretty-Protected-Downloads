@@ -88,4 +88,17 @@ check('a value that is plain text has none', Entries::filenamesIn('just some tex
 check('a "filename" that is a path is not taken', Entries::filenamesIn([['filename' => '../../configuration.php']]) === []);
 check('nor one this plugin did not write', Entries::filenamesIn([['filename' => 'configuration.php']]) === []);
 
+group('Which entries an item may be saved with');
+$own      = ['uuid' => '11111111-1111-4111-8111-111111111111', 'filename' => 'own-11111111-1111-4111-8111-111111111111.pdf'];
+$fresh    = ['uuid' => '22222222-2222-4222-8222-222222222222', 'filename' => 'new-22222222-2222-4222-8222-222222222222.pdf'];
+$foreign  = ['uuid' => '33333333-3333-4333-8333-333333333333', 'filename' => 'other-33333333-3333-4333-8333-333333333333.pdf'];
+$known    = [$own['filename'] => true];
+$uploaded = static fn (array $entry): bool => $entry['uuid'] === $fresh['uuid'];
+$kept     = Entries::bound([$own, $fresh, $foreign], $known, $uploaded);
+check('a file the item already lists stays', in_array($own, $kept, true));
+check('a file uploaded for it stays', in_array($fresh, $kept, true));
+check('another item\'s file is left out', !in_array($foreign, $kept, true));
+check('the order is kept', $kept === [$own, $fresh]);
+check('nothing known, nothing uploaded: nothing stays', Entries::bound([$own, $fresh], [], static fn (): bool => false) === []);
+
 finish();

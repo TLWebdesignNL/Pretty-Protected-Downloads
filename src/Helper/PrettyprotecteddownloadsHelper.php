@@ -356,6 +356,27 @@ final class PrettyprotecteddownloadsHelper
     }
 
     /**
+     * Every stored filename one item's fields name, directly or inside a subform, as keys.
+     *
+     * @param   string  $context  The fields context.
+     * @param   int     $itemId   The item id.
+     *
+     * @return  array<string, true>
+     */
+    public function storedFilenames(string $context, int $itemId): array
+    {
+        $names = [];
+
+        foreach ([...$this->fieldsWithValues($context, $itemId), ...$this->subformsWithValues($context, $itemId)] as $field) {
+            foreach (Entries::filenamesIn($field->value ?? '') as $filename) {
+                $names[$filename] = true;
+            }
+        }
+
+        return $names;
+    }
+
+    /**
      * The ids of all Pretty Protected Downloads fields, as array keys.
      *
      * @return  array<int, true>

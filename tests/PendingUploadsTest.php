@@ -9,8 +9,8 @@
  */
 
 /**
- * Covers the record of unsaved uploads: counted, forgotten once saved or deleted,
- * and gone once they expire.
+ * Covers the record of unsaved uploads: bound to their item, counted, forgotten once
+ * saved or deleted, and gone once they expire.
  */
 
 require_once __DIR__ . '/bootstrap.php';
@@ -36,10 +36,21 @@ check('it is bound to its item and field', $session->data[PendingUploads::SESSIO
     'expires'  => $now + 86400,
 ]);
 
+group('Which item an upload belongs to');
+check('its own item', $uploads->has('uuid-b', 'b-uuid-b.pdf', 'com_content.article', 7, $now));
+check('not another item', !$uploads->has('uuid-b', 'b-uuid-b.pdf', 'com_content.article', 8, $now));
+check('not the same id in another context', !$uploads->has('uuid-b', 'b-uuid-b.pdf', 'com_contact.contact', 7, $now));
+check('not another stored name under its uuid', !$uploads->has('uuid-b', 'other-uuid-b.pdf', 'com_content.article', 7, $now));
+check('not an upload this session never made', !$uploads->has('uuid-x', 'x-uuid-x.pdf', 'com_content.article', 7, $now));
+check('not an item that was never saved', !$uploads->has('uuid-b', 'b-uuid-b.pdf', 'com_content.article', 0, $now));
+check('not once it expired', !$uploads->has('uuid-b', 'b-uuid-b.pdf', 'com_content.article', 7, $now + 86401));
+check('not from another session', !(new PendingUploads(new TestSession()))->has('uuid-b', 'b-uuid-b.pdf', 'com_content.article', 7, $now));
+
 group('Forgetting');
 $uploads->forget(['a-uuid-a.pdf' => true, 'unrelated.pdf' => true], $now);
 check('a saved or deleted upload no longer counts', $uploads->count($now) === 1);
 check('the others stay', isset($session->data[PendingUploads::SESSION_KEY]['uuid-b']));
+check('a forgotten upload belongs to nothing', !$uploads->has('uuid-a', 'a-uuid-a.pdf', 'com_content.article', 7, $now));
 
 group('Expiry');
 check('remembered up to its lifetime', $uploads->count($now + 86400) === 1);

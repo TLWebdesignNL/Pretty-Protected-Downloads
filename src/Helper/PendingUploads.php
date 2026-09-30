@@ -86,6 +86,28 @@ final class PendingUploads
     }
 
     /**
+     * Whether this session uploaded this file for this item.
+     *
+     * @param   string  $uuid      The entry uuid.
+     * @param   string  $filename  The stored filename.
+     * @param   string  $context   The fields context of the item.
+     * @param   int     $itemId    The item.
+     * @param   ?int    $now       The time, for tests.
+     *
+     * @return  bool
+     */
+    public function has(string $uuid, string $filename, string $context, int $itemId, ?int $now = null): bool
+    {
+        $data = $this->live($now ?? time())[$uuid] ?? null;
+
+        return \is_array($data)
+            && $itemId > 0
+            && (string) ($data['filename'] ?? '') === $filename
+            && (string) ($data['context'] ?? '') === $context
+            && (int) ($data['item'] ?? 0) === $itemId;
+    }
+
+    /**
      * Forget the uploads with these stored filenames: they were saved with an item,
      * or deleted.
      *

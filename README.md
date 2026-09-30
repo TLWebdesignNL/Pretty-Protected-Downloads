@@ -121,6 +121,8 @@ The plugin never reads, lists or deletes anything in the storage folder that it 
 
 Editors upload through the same endpoint (`task=upload`), which requires the form token, edit permission on the item (`core.edit`, or `core.edit.own` on their own items; a user profile is edited by its owner, or by anyone who may edit users) and everything the item form itself asks before it offers the field: the field and its field group are published, the field is editable on this side of the site (*Editable In*), the editor's access levels include the field's and its group's (a Super User in the administrator excepted), and the editor has *Edit Custom Field Value* on the field. One session can have at most 50 uploads waiting for their item to be saved. Previews of a file in the form (`task=preview`) are checked the same way.
 
+Every upload is recorded in the editor's session with the item and field it was uploaded for. When an item is saved, it keeps only the files it already listed and the files uploaded for it in that session; any other entry is left out, with a warning. *Save as Copy* may also take over the files of the item it copies, when the editor may edit that item. So an editor cannot attach a file of another item to one they edit, even when they know its name. A file that was uploaded but not saved yet can only be previewed, or replaced and deleted, from the session that uploaded it for that item.
+
 ## Clean-up
 
 Uploads become part of an article when the article is saved. A file that was uploaded but never saved, or that belonged to an article that has since been deleted, stays on disk until it is cleaned up. The **Storage** tab of the plugin settings counts these files and offers **Delete unused files**. A file is only counted as unused when no field of any article names it, and when it is more than a day old, so uploads for articles that are still being edited are never touched.
@@ -130,7 +132,7 @@ Uploads become part of an article when the article is saved. A file that was upl
 - **Supported contexts.** Articles, categories (of any component), contacts and user profiles. A field of this type in another component's context shows a notice instead of the upload control, and nothing is ever served for it, because the plugin has no rule for who may see such an item.
 - **User profiles.** A profile's files are visible to that user alone, on their own profile page. A user can upload files to their own profile wherever the field is editable for them: set *Editable In* to *Administrator*, or deny *Edit Custom Field Value* on the field to the Registered group, if users should not upload to their own profile.
 - **Page caching.** The download tokens are issued when a page is rendered. With the *System - Page Cache* plugin on, a cached page hands out tokens of another session, and its downloads fail. Exclude the pages with downloads from the page cache, or keep the cache off.
-- **Article versions.** Restoring an older version of an article from its history brings back its file entries, but not files that were deleted in the meantime.
+- **Article versions.** Restoring an older version of an article from its history brings back only the file entries the article still lists. Entries of files that were removed in the meantime are left out when the article is saved.
 - **Uninstalling** leaves the stored files in their folder. They are your site's documents, not the plugin's.
 
 ## Development

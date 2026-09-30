@@ -465,7 +465,7 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
 
         $pending->record($uuid, $filename, $context, $itemId, $field);
 
-        $this->discardReplaced($storage, $pending, $input->getString('replace_uuid', ''), $input->getString('replace_filename', ''));
+        $this->discardReplaced($storage, $pending, $context, $itemId, $input->getString('replace_uuid', ''), $input->getString('replace_filename', ''));
 
         $entry = Entries::normalise(['uuid' => $uuid, 'filename' => $filename, 'original' => $original]);
 
@@ -473,22 +473,30 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
     }
 
     /**
-     * Delete the file an upload replaced, when no saved item lists it.
+     * Delete the file an upload replaced, when this session uploaded it for this item
+     * and no saved item lists it.
      *
      * A file that was saved with the item stays until the item is saved without it;
      * one that was uploaded and replaced before any save belongs to nothing and would
-     * otherwise wait for a clean-up.
+     * otherwise wait for a clean-up. Anyone else's file is left alone.
      *
      * @param   Storage         $storage   The storage.
      * @param   PendingUploads  $pending   This session's uploads.
+     * @param   string          $context   The fields context of the item.
+     * @param   int             $itemId    The item.
      * @param   string          $uuid      The replaced entry uuid.
      * @param   string          $filename  The replaced stored filename.
      *
      * @return  void
      */
-    private function discardReplaced(Storage $storage, PendingUploads $pending, string $uuid, string $filename): void
+    private function discardReplaced(Storage $storage, PendingUploads $pending, string $context, int $itemId, string $uuid, string $filename): void
     {
-        if (Entries::belongsTogether($uuid, $filename) && !isset($this->helper()->referencedFilenames()[$filename]) && $storage->delete($filename)) {
+        if (
+            Entries::belongsTogether($uuid, $filename)
+            && $pending->has($uuid, $filename, $context, $itemId)
+            && !isset($this->helper()->referencedFilenames()[$filename])
+            && $storage->delete($filename)
+        ) {
             $pending->forget([$filename => true]);
         }
     }
@@ -497,7 +505,7 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
      * Send an editor the file behind an entry of the item they are editing.
      *
      * An upload the item has not been saved with yet is not listed in the field, so it
-     * can be previewed as long as no item lists it at all.
+     * can be previewed when this session uploaded it for this item.
      *
      * @return  never
      */
@@ -528,7 +536,7 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
 
         $entry = $this->find($field->entries, $uuid);
 
-        if (!$entry && Entries::belongsTogether($uuid, $filename) && !isset($this->helper()->referencedFilenames()[$filename])) {
+        if (!$entry && Entries::belongsTogether($uuid, $filename) && (new PendingUploads($app->getSession(), self::CLEANUP_GRACE))->has($uuid, $filename, $context, $itemId)) {
             $entry = ['uuid' => $uuid, 'filename' => $filename];
         }
 

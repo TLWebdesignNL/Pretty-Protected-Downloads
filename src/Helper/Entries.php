@@ -23,8 +23,9 @@ namespace TLWeb\Plugin\Fields\Prettyprotecteddownloads\Helper;
  *    "button": "...", "title": "...", "description": "...", "icon": "...", "class": "..."}
  *
  * `filename` is the name on disk and always ends in the entry's own uuid, so an entry
- * can only ever point at the file that was uploaded for it. `original` is the name the
- * editor uploaded, used as the name of the download.
+ * can only ever point at the file that was uploaded for it. Which item that file
+ * belongs to is checked on save, see bound(). `original` is the name the editor
+ * uploaded, used as the name of the download.
  *
  * Nothing in here touches Joomla, the database or the disk, so it is what the tests
  * cover most closely.
@@ -97,6 +98,28 @@ final class Entries
         }
 
         return $entry;
+    }
+
+    /**
+     * The entries that may be saved with an item: those whose file the item already
+     * lists, and those uploaded for it.
+     *
+     * Everything else names a file of some other item. Its uuid and name are no
+     * secret, so without this an editor could attach any stored file to an item they
+     * edit and offer it under that item's access rules.
+     *
+     * @param   array[]              $entries   Normalised entries.
+     * @param   array<string, true>  $known     The stored filenames the item already lists, as keys.
+     * @param   callable             $uploaded  fn (array $entry): bool, whether it was uploaded for the item.
+     *
+     * @return  array[]
+     */
+    public static function bound(array $entries, array $known, callable $uploaded): array
+    {
+        return array_values(array_filter(
+            $entries,
+            static fn (array $entry): bool => isset($known[(string) ($entry['filename'] ?? '')]) || $uploaded($entry)
+        ));
     }
 
     /**

@@ -14,8 +14,11 @@ use Joomla\CMS\Factory;
 use Joomla\CMS\Form\Field\SubformField;
 use Joomla\CMS\Form\FormHelper;
 use Joomla\CMS\Language\Text;
+use Joomla\Database\DatabaseInterface;
 use Joomla\Registry\Registry;
+use TLWeb\Plugin\Fields\Prettyprotecteddownloads\Extension\Prettyprotecteddownloads;
 use TLWeb\Plugin\Fields\Prettyprotecteddownloads\Helper\Entries;
+use TLWeb\Plugin\Fields\Prettyprotecteddownloads\Helper\PendingUploads;
 use TLWeb\Plugin\Fields\Prettyprotecteddownloads\Helper\PrettyprotecteddownloadsHelper;
 
 // phpcs:disable PSR1.Files.SideEffects
@@ -98,7 +101,7 @@ XML;
     }
 
     /**
-     * Keep only rows that name an uploaded file, stored as a JSON list.
+     * Keep only rows that name a file uploaded for this item, stored as a JSON list.
      *
      * @param   mixed      $value  The posted rows.
      * @param   ?string    $group  The group.
@@ -118,7 +121,84 @@ XML;
             }
         }
 
+        $entries = $this->bound($entries, $input);
+
         return $entries === [] ? '' : (string) json_encode($entries, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    }
+
+    /**
+     * The entries that may be saved with the item: the files it already lists, and
+     * the ones uploaded for it in this session. Any other entry is dropped, with a
+     * warning.
+     *
+     * This runs while the item's form is validated, which is the last moment the
+     * posted value can still be changed: the save events only get a copy of it.
+     *
+     * The item is the one the form data is saved as. Save as Copy resets that to 0,
+     * and a subform row does not carry it at all, so then it is the item the request
+     * names, and only when the user may edit that item. Save as Copy may so take
+     * over the files of the item it copies.
+     *
+     * @param   array[]    $entries  Normalised entries.
+     * @param   ?Registry  $input    The whole posted form, or one subform row.
+     *
+     * @return  array[]
+     */
+    private function bound(array $entries, ?Registry $input): array
+    {
+        if ($entries === []) {
+            return [];
+        }
+
+        $app     = Factory::getApplication();
+        $context = (string) ($this->element['context'] ?? '');
+        $itemId  = (int) ($input?->get('id') ?? 0) ?: $this->itemId();
+        $known   = self::known($context, $itemId);
+        $pending = new PendingUploads($app->getSession(), Prettyprotecteddownloads::CLEANUP_GRACE);
+        $kept    = Entries::bound(
+            $entries,
+            $known ?? [],
+            static fn (array $entry): bool => $known !== null && $pending->has($entry['uuid'], $entry['filename'], $context, $itemId)
+        );
+
+        if (\count($kept) < \count($entries)) {
+            $names = array_map(
+                static fn (array $entry): string => htmlspecialchars(Entries::downloadName($entry), ENT_QUOTES, 'UTF-8'),
+                array_udiff($entries, $kept, static fn (array $a, array $b): int => strcmp($a['uuid'], $b['uuid']))
+            );
+
+            $app->enqueueMessage(Text::sprintf('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_WARNING_ENTRIES_DROPPED', implode(', ', $names)), 'warning');
+        }
+
+        return $kept;
+    }
+
+    /**
+     * The stored filenames an item lists, or null when the current user may not edit it.
+     *
+     * Kept for the request, since every field and every subform row asks.
+     *
+     * @param   string  $context  The fields context.
+     * @param   int     $itemId   The item id.
+     *
+     * @return  ?array<string, true>
+     */
+    private static function known(string $context, int $itemId): ?array
+    {
+        static $cache = [];
+
+        $key = $context . ':' . $itemId;
+
+        if (!\array_key_exists($key, $cache)) {
+            $app    = Factory::getApplication();
+            $user   = $app->getIdentity();
+            $helper = new PrettyprotecteddownloadsHelper(Factory::getContainer()->get(DatabaseInterface::class), $app);
+            $item   = $user && !$user->guest ? $helper->item($context, $itemId, $user) : null;
+
+            $cache[$key] = $item && $item->editable ? $helper->storedFilenames($context, $itemId) : null;
+        }
+
+        return $cache[$key];
     }
 
     /**
