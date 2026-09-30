@@ -15,6 +15,7 @@
         </change>
         <fix>
             <item>Every download button now has its own accessible name: screen readers hear the file's title with the button text, rather than a row of identical "Download" buttons. In the Buttons layout the file type and size are read out too, rather than only shown as a tooltip.</item>
+            <item>The upload control in the item form: the file input is connected to its visible label and hint, the progress bar has a name, and the preview link says it opens in a new tab.</item>
             <item>Editors can download from unpublished and scheduled articles and contacts they may edit, as they can preview them.</item>
             <item>A field used both directly on an item and inside a subform of it now serves the files of both.</item>
             <item>A storage folder whose .htaccess does not deny access is closed with the plugin's own rules, and the storage status only reports a folder as closed when its .htaccess really denies access.</item>

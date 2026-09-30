@@ -73,16 +73,20 @@ class PrettyprotecteddownloadsitemField extends FormField
         $html[] = '<a class="ppd-link link-primary text-decoration-none" target="_blank" rel="noopener"'
             . ($current !== '' ? '' : ' hidden')
             . ' href="' . $escape($current !== '' ? str_replace(['__UUID__', '__FILE__'], [rawurlencode($uuid), rawurlencode($filename)], $endpoint . '&format=raw&task=preview&uuid=__UUID__&filename=__FILE__') : '#') . '">'
-            . '<span class="icon-file-alt me-1" aria-hidden="true"></span><span class="ppd-name">' . $escape($current) . '</span></a>';
+            . '<span class="icon-file-alt me-1" aria-hidden="true"></span><span class="ppd-name">' . $escape($current) . '</span>'
+            . '<span class="visually-hidden"> ' . Text::_('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_OPENS_NEW_TAB') . '</span></a>';
         $html[] = '</div>';
-        $html[] = '<input type="file" class="form-control ppd-input" accept="' . $escape('.' . implode(',.', $allowed)) . '"'
-            . ' aria-label="' . $escape(Text::_('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_ENTRY_FILE_LABEL')) . '"' . $enabled . '>';
-        $html[] = '<div class="form-text">' . $escape(Text::sprintf(
+        // The row's visible label points at the field's id, so the input carries it.
+        $html[] = '<input type="file" class="form-control ppd-input" id="' . $escape((string) $this->id) . '"'
+            . ' aria-describedby="' . $escape($this->id . '-hint') . '"'
+            . ' accept="' . $escape('.' . implode(',.', $allowed)) . '"' . $enabled . '>';
+        $html[] = '<div class="form-text" id="' . $escape($this->id . '-hint') . '">' . $escape(Text::sprintf(
             'PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_UPLOAD_HINT',
             implode(', ', $allowed),
             $maxBytes > 0 ? HTMLHelper::_('number.bytes', $maxBytes) : '-'
         )) . '</div>';
-        $html[] = '<div class="ppd-progress progress mt-2" hidden role="progressbar" aria-valuemin="0" aria-valuemax="100">'
+        $html[] = '<div class="ppd-progress progress mt-2" hidden role="progressbar" aria-valuemin="0" aria-valuemax="100"'
+            . ' aria-label="' . $escape(Text::_('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_UPLOAD_PROGRESS')) . '">'
             . '<div class="progress-bar progress-bar-striped progress-bar-animated"></div></div>';
         $html[] = '<div class="ppd-status mt-2 small" role="status" aria-live="polite"></div>';
 
