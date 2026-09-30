@@ -50,6 +50,8 @@ use TLWeb\Plugin\Fields\Prettyprotecteddownloads\Helper\Storage;
  *
  *   task=upload    POST, editors: stores a file and returns its entry
  *   task=preview   GET, editors: the file as the editor sees it in the form
+ *   task=token     POST, visitors: a fresh download token for one file, after the
+ *                  same access checks as a download
  *   task=download  POST, visitors: the file, after the item, field and field group
  *                  access checks and a download token check
  *   task=cleanup   POST, administrators: deletes stored files no field names any more
@@ -316,6 +318,7 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
 
         match ($task) {
             'upload'  => $event->addResult($this->upload()),
+            'token'   => $event->addResult($this->token()),
             'cleanup' => $event->addResult($this->cleanup()),
             'preview' => $this->preview(),
             default   => $this->download(),
@@ -537,6 +540,44 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
     }
 
     /**
+     * Issue a download token for one file, for the button a visitor is about to press.
+     *
+     * The download buttons ask for this when they are pressed rather than carrying a
+     * token from when the page was rendered, so they keep working on a page served
+     * from a cache, whose rendered tokens belong to another visitor's session. The
+     * request needs the form token, which Joomla's caches do replace, and passes the
+     * same access checks as the download itself.
+     *
+     * @return  array{token: string}
+     *
+     * @throws  \RuntimeException
+     */
+    private function token(): array
+    {
+        $app     = $this->getApplication();
+        $input   = $app->getInput();
+        $user    = $app->getIdentity() ?: new User();
+        $context = $input->post->getString('context', '');
+        $uuid    = $input->post->getString('uuid', '');
+        $itemId  = $input->post->getInt('item', 0);
+        $name    = $input->post->getString('field', '');
+
+        if (strtoupper($input->server->getString('REQUEST_METHOD', '')) !== 'POST' || !Session::checkToken('post')) {
+            throw new \RuntimeException(Text::_('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_ERROR_EXPIRED'), 403);
+        }
+
+        $refusal = $this->downloadable($user, $context, $itemId, $name, $uuid);
+
+        if (\is_string($refusal)) {
+            throw new \RuntimeException(Text::_($refusal), 403);
+        }
+
+        $tokens = new DownloadTokens($app->getSession(), Settings::tokenLifetime($this->params));
+
+        return ['token' => $tokens->issue($uuid, $context, $itemId, $name)];
+    }
+
+    /**
      * Send a visitor a file, after every check the page that offered it passed.
      *
      * @return  never
@@ -562,10 +603,44 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
             $this->refuse('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_ERROR_EXPIRED');
         }
 
+        $entry = $this->downloadable($user, $context, $itemId, $name, $uuid);
+
+        if (\is_string($entry)) {
+            $this->refuse($entry);
+        }
+
+        $file = Storage::fromParams($this->params)->locate((string) $entry['filename']);
+
+        if ($file === null) {
+            $this->refuse('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_ERROR_NOT_FOUND');
+        }
+
+        $this->send($file, Entries::downloadName($entry));
+    }
+
+    /**
+     * The entry a visitor asks to download, when they may: the item is visible to
+     * them, the field and its group are published and on one of their access levels,
+     * and the field lists the file. Otherwise the language key of the reason.
+     *
+     * @param   User    $user     The visitor.
+     * @param   string  $context  The fields context.
+     * @param   int     $itemId   The item.
+     * @param   string  $name     The field name.
+     * @param   string  $uuid     The entry uuid.
+     *
+     * @return  array|string
+     */
+    private function downloadable(User $user, string $context, int $itemId, string $name, string $uuid): array|string
+    {
+        if ($uuid === '' || $itemId <= 0 || $name === '') {
+            return 'PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_ERROR_NOT_FOUND';
+        }
+
         $item = $this->helper()->item($context, $itemId, $user);
 
         if (!$item || !$item->visible) {
-            $this->refuse('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_ERROR_NO_ACCESS');
+            return 'PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_ERROR_NO_ACCESS';
         }
 
         $levels = $user->getAuthorisedViewLevels();
@@ -577,17 +652,10 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
             || !\in_array((int) $field->access, $levels, true)
             || ($field->group_state !== null && ((int) $field->group_state !== 1 || !\in_array((int) $field->group_access, $levels, true)))
         ) {
-            $this->refuse('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_ERROR_NO_ACCESS');
+            return 'PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_ERROR_NO_ACCESS';
         }
 
-        $entry = $this->find($field->entries, $uuid);
-        $file  = $entry ? Storage::fromParams($this->params)->locate((string) $entry['filename']) : null;
-
-        if ($file === null) {
-            $this->refuse('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_ERROR_NOT_FOUND');
-        }
-
-        $this->send($file, Entries::downloadName($entry));
+        return $this->find($field->entries, $uuid) ?? 'PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_ERROR_NOT_FOUND';
     }
 
     /**

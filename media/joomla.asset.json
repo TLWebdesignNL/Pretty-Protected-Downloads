@@ -16,6 +16,16 @@
         "defer": true
       },
       "version": "auto"
+    },
+    {
+      "name": "plg_fields_prettyprotecteddownloads.download",
+      "type": "script",
+      "uri": "plg_fields_prettyprotecteddownloads/download.js",
+      "dependencies": [],
+      "attributes": {
+        "defer": true
+      },
+      "version": "auto"
     }
   ]
 }

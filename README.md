@@ -10,7 +10,7 @@ Use it for member documents, meeting minutes, reports for a closed group, price 
 - Upload straight from the article form. A file uploads as soon as it is chosen, with a progress bar; the article cannot be saved while an upload is still running.
 - Files are stored **outside the web root**, or inside it in a folder closed with `.htaccess`.
 - Every download is checked the way the item's own component checks its page: publishing state and dates, the item and category access levels, and on top of that the field and field group access levels.
-- Every download button carries a short-lived token bound to the visitor's session, so a file can only be fetched from a page that visitor was allowed to see.
+- Every download needs a short-lived token bound to the visitor's session, fetched when the button is pressed, so a file can only be fetched by a visitor who passes the same checks as the download itself.
 - Visitors download the file under the name it was uploaded with.
 - Three layouts, **Buttons**, **Cards** and **List**, each with an optional file type and size, and each overridable from your template.
 - Works inside **subform** fields.
@@ -107,7 +107,7 @@ Each download in a layout is a small `<form method="post">`: keep the `$download
 A download is a `POST` to `index.php?option=com_ajax&group=fields&plugin=prettyprotecteddownloads&task=download` and is only served when all of these hold:
 
 1. The Joomla form token of the visitor's session is valid.
-2. The download token was issued to this session, for exactly this file, article and field, and has not expired.
+2. The download token was issued to this session, for exactly this file, article and field, and has not expired. The button asks for it (`task=token`, also a `POST` with the form token) the moment it is pressed, and it is only issued when checks 3 to 5 below hold.
 3. The visitor could see the item the field is on:
    - an **article** or **contact** when it is published or archived, within its publish up and publish down dates, in a published category, and the visitor has both its access level and the category's;
    - a **category** when Joomla's own category tree holds it for this visitor, which means it and every category above it are published and accessible;
@@ -131,7 +131,7 @@ Uploads become part of an article when the article is saved. A file that was upl
 
 - **Supported contexts.** Articles, categories (of any component), contacts and user profiles. A field of this type in another component's context shows a notice instead of the upload control, and nothing is ever served for it, because the plugin has no rule for who may see such an item.
 - **User profiles.** A profile's files are visible to that user alone, on their own profile page. A user can upload files to their own profile wherever the field is editable for them: set *Editable In* to *Administrator*, or deny *Edit Custom Field Value* on the field to the Registered group, if users should not upload to their own profile.
-- **Page caching.** The download tokens are issued when a page is rendered. With the *System - Page Cache* plugin on, a cached page hands out tokens of another session, and its downloads fail. Exclude the pages with downloads from the page cache, or keep the cache off.
+- **Caching.** A download button fetches its download token (`task=token`) when it is pressed, with the page's form token, which Joomla's caches replace with the visitor's own. So downloads work on pages served by *System Cache: Conservative* and by the *System - Page Cache* plugin. Without JavaScript the button sends the token it was rendered with instead, and on a cached page that token belongs to another session, so the download fails with "expired". Exclude the pages with downloads from caching if visitors without JavaScript must be able to download.
 - **Article versions.** Restoring an older version of an article from its history brings back only the file entries the article still lists. Entries of files that were removed in the meantime are left out when the article is saved.
 - **Uninstalling** leaves the stored files in their folder. They are your site's documents, not the plugin's.
 

@@ -21,7 +21,8 @@
  * Available to the display layout:
  *   $downloads    list of objects with: title, description (plain text), button, icon,
  *                 class, name (the name the file downloads as), extension, size (bytes,
- *                 or null when not shown), hidden (the form's hidden inputs, as HTML)
+ *                 or null when not shown), hidden (the form's hidden inputs, as HTML;
+ *                 keep them in the form, download.js finds its forms by them)
  *   $actionUrl    where each download form posts to
  *   $buttonClass  the extra button classes set on the field
  *   $cardClass    the extra card classes set on the field
@@ -29,6 +30,7 @@
 
 \defined('_JEXEC') or die;
 
+use Joomla\CMS\Document\HtmlDocument;
 use Joomla\CMS\Factory;
 use Joomla\CMS\Plugin\PluginHelper;
 use Joomla\CMS\Session\Session;
@@ -50,7 +52,10 @@ $tokens      = new DownloadTokens($app->getSession(), Settings::tokenLifetime($t
 $storage     = Storage::fromParams($this->params);
 $showMeta    = (bool) $fieldParams->get('show_meta', 1);
 $formToken   = Session::getFormToken();
-$actionUrl   = Uri::root() . 'index.php?option=com_ajax&group=fields&plugin=prettyprotecteddownloads&format=raw&task=download';
+$endpoint    = Uri::root() . 'index.php?option=com_ajax&group=fields&plugin=prettyprotecteddownloads';
+$actionUrl   = $endpoint . '&format=raw&task=download';
+$tokenUrl    = $endpoint . '&format=json&task=token';
+$escape      = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
 $buttonClass = trim((string) $fieldParams->get('button_class', ''));
 $cardClass   = trim((string) $fieldParams->get('card_class', ''));
 $downloads   = [];
@@ -65,12 +70,11 @@ foreach ($entries as $entry) {
     $token = $tokens->issue($entry['uuid'], (string) $context, $itemId, $field->name);
 
     $hidden = [
-        'uuid'           => $entry['uuid'],
-        'context'        => (string) $context,
-        'item'           => $itemId,
-        'field'          => $field->name,
-        'download_token' => $token,
-        $formToken       => 1,
+        'uuid'     => $entry['uuid'],
+        'context'  => (string) $context,
+        'item'     => $itemId,
+        'field'    => $field->name,
+        $formToken => 1,
     ];
 
     $downloads[] = (object) [
@@ -82,17 +86,30 @@ foreach ($entries as $entry) {
         'name'        => $name,
         'extension'   => Entries::extension($name),
         'size'        => $file !== null ? (int) filesize($file) : null,
+        // The download token is fetched fresh when the button is pressed (download.js),
+        // since a cached page carries the tokens of whoever it was rendered for. The
+        // one rendered here is only sent when scripts do not run; it comes last, so it
+        // wins over the empty one.
         'hidden'      => implode('', array_map(
-            static fn ($key, $value): string => '<input type="hidden" name="' . htmlspecialchars((string) $key, ENT_QUOTES, 'UTF-8')
-                . '" value="' . htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8') . '">',
+            static fn ($key, $value): string => '<input type="hidden" name="' . $escape($key) . '" value="' . $escape($value) . '">',
             array_keys($hidden),
             $hidden
-        )),
+        ))
+            . '<input type="hidden" name="download_token" value="" data-ppd-token-url="' . $escape($tokenUrl) . '">'
+            . '<noscript><input type="hidden" name="download_token" value="' . $escape($token) . '"></noscript>',
     ];
 }
 
 if ($downloads === []) {
     return;
+}
+
+$document = $app->getDocument();
+
+if ($document instanceof HtmlDocument) {
+    $wa = $document->getWebAssetManager();
+    $wa->getRegistry()->addExtensionRegistryFile('plg_fields_prettyprotecteddownloads');
+    $wa->useScript('plg_fields_prettyprotecteddownloads.download');
 }
 
 $display = (string) $fieldParams->get('display_mode', 'buttons');
