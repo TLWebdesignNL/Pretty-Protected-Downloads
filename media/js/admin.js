@@ -203,7 +203,7 @@
       })
       .catch((error) => {
         result.className = 'ppd-cleanup-result small mt-2 text-danger';
-        result.textContent = text('UPLOAD_FAILED', error.message);
+        result.textContent = text('CLEANUP_FAILED', error.message);
         button.disabled = false;
       });
   });

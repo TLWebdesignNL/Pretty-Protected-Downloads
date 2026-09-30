@@ -145,7 +145,7 @@ class StoragestatusField extends FormField
         $wa = Factory::getApplication()->getDocument()->getWebAssetManager();
         $wa->getRegistry()->addExtensionRegistryFile('plg_fields_prettyprotecteddownloads');
         $wa->useScript('plg_fields_prettyprotecteddownloads.admin');
-        Text::script('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_JS_UPLOAD_FAILED');
+        Text::script('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_JS_CLEANUP_FAILED');
 
         $url   = Uri::base() . 'index.php?option=com_ajax&group=fields&plugin=prettyprotecteddownloads&format=json&task=cleanup';
         $bytes = array_sum(array_column($unused, 'size'));
