@@ -96,4 +96,12 @@ check('a file a field names is not', !isset($unused[$name]));
 check('a fresh upload is given its grace period', !isset($unused[$fresh]));
 check('deleting a stored file works', $storage->delete($old) && !is_file($outside . '/' . $old));
 
+group('Automatic clean-up');
+$now = time();
+check('the first one is due', $storage->claimCleanup(86400, $now));
+check('not again the same day', !$storage->claimCleanup(86400, $now + 3600));
+check('again a day later', $storage->claimCleanup(86400, $now + 86401));
+check('its marker is never a stored file', !isset($storage->files()['.lastcleanup']));
+check('nothing is due for a folder that does not exist', !(new Storage(Storage::OUTSIDE, $outside . '/missing', $site))->claimCleanup(86400, $now));
+
 finish();

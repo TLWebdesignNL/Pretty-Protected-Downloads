@@ -5,6 +5,7 @@
         <version>1.1.0</version>
         <addition>
             <item>Deleting an item (an article, category, contact or user) now deletes its files as well, unless another item still uses them.</item>
+            <item>Unused files are now cleaned up automatically: once a day, the first upload also deletes the files that no field names and that are older than the grace period.</item>
             <item>A setting for how long unsaved uploads are kept before Delete unused files may remove them, 7 days by default. It was a fixed day.</item>
         </addition>
         <fix>

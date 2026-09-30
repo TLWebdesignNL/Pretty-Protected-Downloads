@@ -127,7 +127,7 @@ Every upload is recorded in the editor's session with the item and field it was 
 
 Uploads become part of an item when the item is saved. When an item is deleted (an article emptied from the trash, a category, contact or user deleted), its files are deleted with it, unless another item, such as a copy, still uses them.
 
-A file that was uploaded but never saved stays on disk until it is cleaned up. The **Storage** tab of the plugin settings counts these files and offers **Delete unused files**. A file is only counted as unused when no field of any item names it, and when it is older than **Keep Unused Uploads For** (7 days by default, on the same tab). Set that longer than an editor may leave an item open with a new upload in it: an upload that is cleaned up before its item is saved is lost.
+A file that was uploaded but never saved is cleaned up automatically: once a day, the first upload also deletes the unused files. The **Storage** tab of the plugin settings counts these files as well and offers **Delete unused files** to do it at once. The folder holds a `.lastcleanup` file that records when the automatic clean-up last ran. A file is only counted as unused when no field of any item names it, and when it is older than **Keep Unused Uploads For** (7 days by default, on the same tab). Set that longer than an editor may leave an item open with a new upload in it: an upload that is cleaned up before its item is saved is lost.
 
 ## Limitations
 

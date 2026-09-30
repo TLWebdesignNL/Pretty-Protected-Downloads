@@ -547,6 +547,8 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
 
         $this->discardReplaced($storage, $pending, $context, $itemId, $input->getString('replace_uuid', ''), $input->getString('replace_filename', ''));
 
+        $this->cleanupIfDue($storage);
+
         $entry = Entries::normalise(['uuid' => $uuid, 'filename' => $filename, 'original' => $original]);
 
         return $entry + ['size' => (int) $file['size']];
@@ -768,7 +770,46 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
             throw new \RuntimeException(Text::_('JERROR_ALERTNOAUTHOR'), 403);
         }
 
-        $storage = Storage::fromParams($this->params);
+        ['deleted' => $deleted, 'bytes' => $bytes] = $this->deleteUnused(Storage::fromParams($this->params));
+
+        return [
+            'deleted' => $deleted,
+            'bytes'   => $bytes,
+            'message' => Text::plural('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_CLEANUP_DONE_N', $deleted, HTMLHelper::_('number.bytes', $bytes)),
+        ];
+    }
+
+    /**
+     * The automatic clean-up: once a day, the first upload deletes the stored files
+     * no field names and that are older than the grace period, the same as the
+     * button on the settings screen.
+     *
+     * @param   Storage  $storage  The storage.
+     *
+     * @return  void
+     */
+    private function cleanupIfDue(Storage $storage): void
+    {
+        if (!$storage->claimCleanup(86400)) {
+            return;
+        }
+
+        ['deleted' => $deleted, 'bytes' => $bytes] = $this->deleteUnused($storage);
+
+        if ($deleted > 0) {
+            Log::add(\sprintf('Automatic clean-up deleted %d unused files (%d bytes).', $deleted, $bytes), Log::INFO, 'plg_fields_prettyprotecteddownloads');
+        }
+    }
+
+    /**
+     * Delete the stored files no field names and that are older than the grace period.
+     *
+     * @param   Storage  $storage  The storage.
+     *
+     * @return  array{deleted: int, bytes: int}
+     */
+    private function deleteUnused(Storage $storage): array
+    {
         $unused  = $storage->unused($this->helper()->referencedFilenames(), time() - Settings::cleanupGrace($this->params));
         $deleted = 0;
         $bytes   = 0;
@@ -780,11 +821,7 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
             }
         }
 
-        return [
-            'deleted' => $deleted,
-            'bytes'   => $bytes,
-            'message' => Text::plural('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_CLEANUP_DONE_N', $deleted, HTMLHelper::_('number.bytes', $bytes)),
-        ];
+        return ['deleted' => $deleted, 'bytes' => $bytes];
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

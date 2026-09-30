@@ -41,6 +41,11 @@ final class Storage
     public const DEFAULT_WEBROOT_FOLDER = 'files/prettyprotecteddownloads';
 
     /**
+     * The file whose modification time is the last automatic clean-up.
+     */
+    private const CLEANUP_MARKER = '.lastcleanup';
+
+    /**
      * Joomla's own top-level folders. Closing one of these with .htaccess would take
      * the site, the administrator or every image on it offline, so none of them is
      * ever accepted as the storage folder.
@@ -246,6 +251,30 @@ HTACCESS;
         $file = $this->locate($filename);
 
         return $file !== null && @unlink($file);
+    }
+
+    /**
+     * Whether a clean-up is due, and if so, claim it: at most one per period, across
+     * every request. The time of the last one is the modification time of a marker
+     * file in the folder, which, like the protection files, is never a stored file.
+     *
+     * @param   int   $every  Seconds between two clean-ups.
+     * @param   ?int  $now    The time, for tests.
+     *
+     * @return  bool
+     */
+    public function claimCleanup(int $every, ?int $now = null): bool
+    {
+        $now    = $now ?? time();
+        $marker = $this->path() . '/' . self::CLEANUP_MARKER;
+
+        clearstatcache(true, $marker);
+
+        if ($this->path() === '' || !is_dir($this->path()) || (is_file($marker) && (int) filemtime($marker) > $now - $every)) {
+            return false;
+        }
+
+        return @touch($marker, $now);
     }
 
     /**
