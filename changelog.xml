@@ -8,6 +8,9 @@
             <item>Unused files are now cleaned up automatically: once a day, the first upload also deletes the files that no field names and that are older than the grace period.</item>
             <item>A setting for how long unsaved uploads are kept before Delete unused files may remove them, 7 days by default. It was a fixed day.</item>
         </addition>
+        <change>
+            <item>Requires Joomla 5.3 or later. The plugin is now constructed the way Joomla 7 expects, and no longer uses APIs that Joomla 6 deprecates.</item>
+        </change>
         <fix>
             <item>Downloads now work on pages served from Joomla's view cache (System Cache: Conservative) and from the System - Page Cache plugin. A button fetches a fresh download token when it is pressed, instead of sending the one the cached page was rendered with for another visitor.</item>
         </fix>

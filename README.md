@@ -21,7 +21,7 @@ Use it for member documents, meeting minutes, reports for a closed group, price 
 
 ## Requirements
 
-- Joomla 5 or 6.
+- Joomla 5.3 or later, or Joomla 6.
 - PHP 8.1 or newer.
 
 ## Installation

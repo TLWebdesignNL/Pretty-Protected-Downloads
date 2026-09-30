@@ -22,11 +22,12 @@ use Joomla\Database\DatabaseInterface;
  */
 return new class () implements InstallerScriptInterface {
     /**
-     * Joomla 5.0 brought the event classes the plugin subscribes with.
+     * Joomla 5.3 is the first whose plugins are constructed from their configuration
+     * alone, without the event dispatcher, which Joomla 7 no longer accepts.
      *
      * @var string
      */
-    private string $minimumJoomla = '5.0';
+    private string $minimumJoomla = '5.3';
 
     /**
      * @var string

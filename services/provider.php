@@ -16,7 +16,6 @@ use Joomla\CMS\Plugin\PluginHelper;
 use Joomla\Database\DatabaseInterface;
 use Joomla\DI\Container;
 use Joomla\DI\ServiceProviderInterface;
-use Joomla\Event\DispatcherInterface;
 use TLWeb\Plugin\Fields\Prettyprotecteddownloads\Extension\Prettyprotecteddownloads;
 
 return new class () implements ServiceProviderInterface {
@@ -32,12 +31,7 @@ return new class () implements ServiceProviderInterface {
         $container->set(
             PluginInterface::class,
             function (Container $container): PluginInterface {
-                // The dispatcher is still passed first so the plugin constructs on
-                // Joomla 5.0, whose CMSPlugin constructor requires it.
-                $plugin = new Prettyprotecteddownloads(
-                    $container->get(DispatcherInterface::class),
-                    (array) PluginHelper::getPlugin('fields', 'prettyprotecteddownloads')
-                );
+                $plugin = new Prettyprotecteddownloads((array) PluginHelper::getPlugin('fields', 'prettyprotecteddownloads'));
                 $plugin->setApplication(Factory::getApplication());
                 $plugin->setDatabase($container->get(DatabaseInterface::class));
 
