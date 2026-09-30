@@ -28,6 +28,100 @@ final class Settings
     public const DEFAULT_MAX_MB = 20;
 
     /**
+     * The content types downloads are sent with, by extension. The type is taken from
+     * the name rather than sniffed from the bytes, so a file that is not what its name
+     * says is never sent as a page or a script; anything else is a plain octet stream.
+     */
+    public const CONTENT_TYPES = [
+        'pdf'  => 'application/pdf',
+        'doc'  => 'application/msword',
+        'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'odt'  => 'application/vnd.oasis.opendocument.text',
+        'rtf'  => 'application/rtf',
+        'txt'  => 'text/plain',
+        'csv'  => 'text/csv',
+        'xls'  => 'application/vnd.ms-excel',
+        'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'ods'  => 'application/vnd.oasis.opendocument.spreadsheet',
+        'ppt'  => 'application/vnd.ms-powerpoint',
+        'pptx' => 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        'odp'  => 'application/vnd.oasis.opendocument.presentation',
+        'zip'  => 'application/zip',
+        'jpg'  => 'image/jpeg',
+        'jpeg' => 'image/jpeg',
+        'png'  => 'image/png',
+        'gif'  => 'image/gif',
+        'webp' => 'image/webp',
+        'mp3'  => 'audio/mpeg',
+        'mp4'  => 'video/mp4',
+    ];
+
+    /**
+     * What an upload's content may be detected as, by extension. An upload whose
+     * content is detected as anything else is refused, so a web page or a script can
+     * not be stored under the name of a document.
+     *
+     * The lists are generous where the detection is unsure: the old Office formats are
+     * all one kind of container, the new ones and OpenDocument are zip archives that
+     * are not always recognised further, and text is often just text/plain. An octet
+     * stream is content the detection did not recognise at all, which a page or a
+     * script never is.
+     *
+     * An extension an administrator allows that is not listed here is accepted
+     * without this check, and logged.
+     */
+    public const MIME_TYPES = [
+        'pdf'  => ['application/pdf'],
+        'doc'  => ['application/msword', ...self::OLE],
+        'docx' => ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', ...self::ZIP, ...self::OLE],
+        'odt'  => ['application/vnd.oasis.opendocument.text', ...self::ZIP],
+        'rtf'  => ['application/rtf', 'text/rtf', 'text/plain'],
+        'txt'  => ['text/plain', 'application/x-empty'],
+        'csv'  => ['text/csv', 'text/plain', 'application/csv', 'text/x-csv', 'application/x-empty'],
+        'xls'  => ['application/vnd.ms-excel', ...self::OLE],
+        'xlsx' => ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', ...self::ZIP, ...self::OLE],
+        'ods'  => ['application/vnd.oasis.opendocument.spreadsheet', ...self::ZIP],
+        'ppt'  => ['application/vnd.ms-powerpoint', ...self::OLE],
+        'pptx' => ['application/vnd.openxmlformats-officedocument.presentationml.presentation', ...self::ZIP, ...self::OLE],
+        'odp'  => ['application/vnd.oasis.opendocument.presentation', ...self::ZIP],
+        'zip'  => [
+            'application/x-zip-compressed',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+            'application/vnd.oasis.opendocument.text',
+            'application/vnd.oasis.opendocument.spreadsheet',
+            'application/vnd.oasis.opendocument.presentation',
+            ...self::ZIP,
+        ],
+        'jpg'  => ['image/jpeg'],
+        'jpeg' => ['image/jpeg'],
+        'png'  => ['image/png'],
+        'gif'  => ['image/gif'],
+        'webp' => ['image/webp'],
+        'mp3'  => ['audio/mpeg', 'audio/mp3', 'audio/x-mpeg', 'application/octet-stream'],
+        'mp4'  => ['video/mp4', 'audio/mp4', 'video/x-m4v', 'video/quicktime', 'application/octet-stream'],
+    ];
+
+    /**
+     * The old Office formats: a compound document, told apart only sometimes.
+     */
+    private const OLE = [
+        'application/x-ole-storage',
+        'application/cdfv2',
+        'application/vnd.ms-office',
+        'application/msword',
+        'application/vnd.ms-excel',
+        'application/vnd.ms-powerpoint',
+        'application/octet-stream',
+    ];
+
+    /**
+     * A zip archive, or content the detection could not tell further.
+     */
+    private const ZIP = ['application/zip', 'application/octet-stream'];
+
+    /**
      * Extensions never accepted, whatever the settings say: anything a web server
      * might run, or a browser render as a page, if the file ever were reached directly.
      */
@@ -64,6 +158,23 @@ final class Settings
         $list = array_filter($list, static fn (string $ext): bool => preg_match('/^[a-z0-9]+$/', $ext) === 1);
 
         return array_values(array_unique(array_diff($list, self::NEVER)));
+    }
+
+    /**
+     * Whether content detected as this type may be stored under this extension.
+     *
+     * @param   string  $extension  The lower-case extension.
+     * @param   string  $detected   The type the content was detected as.
+     *
+     * @return  ?bool  Null when there is no rule for the extension.
+     */
+    public static function typeMatches(string $extension, string $detected): ?bool
+    {
+        if (!isset(self::MIME_TYPES[$extension])) {
+            return null;
+        }
+
+        return \in_array(strtolower(trim($detected)), array_map('strtolower', self::MIME_TYPES[$extension]), true);
     }
 
     /**

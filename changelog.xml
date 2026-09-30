@@ -7,6 +7,7 @@
             <item>Uploads and previews now require everything the item form asks before it offers the field: the field and its field group are published, the field is editable on the current side of the site, the editor's access levels include the field's, and the editor has Edit Custom Field Value on the field. Before, edit permission on the item was enough, so every registered user could upload to their own profile through a field meant for administrators only.</item>
             <item>One session can have at most 50 uploads waiting for their item to be saved.</item>
             <item>Files are now bound to the item they were uploaded for. A save keeps only the files the item already listed and the ones uploaded for it in the editor's session, so an editor can no longer attach another item's file, whose name is no secret, to an item they edit and offer it under that item's access rules. Save as Copy still takes over the files of the item it copies.</item>
+            <item>The content of an upload must now match its extension, so a web page or a script can no longer be stored as, for example, a PDF. File types an administrator adds to the allowed list are accepted without this check, and logged.</item>
             <item>A file that was uploaded but not saved yet can only be previewed, or replaced and deleted, from the session that uploaded it for that item. Before, any editor could preview or delete any file that no item listed.</item>
         </security>
     </changelog>

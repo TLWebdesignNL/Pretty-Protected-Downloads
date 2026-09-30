@@ -9,8 +9,8 @@
  */
 
 /**
- * Covers the upload settings: which extensions can never be allowed, and the size
- * limit that is really in effect.
+ * Covers the upload settings: which extensions can never be allowed, the size limit
+ * that is really in effect, and which content each extension may have.
  */
 
 require_once __DIR__ . '/bootstrap.php';
@@ -42,5 +42,35 @@ check('0 leaves only the PHP limit', Settings::maxBytes(new Registry(['max_size'
 group('Download button lifetime');
 check('minutes become seconds', Settings::tokenLifetime(new Registry(['token_lifetime' => 15])) === 900);
 check('at least one minute', Settings::tokenLifetime(new Registry(['token_lifetime' => 0])) === 60);
+
+group('Content checks');
+check('every default extension has a rule', array_diff(Settings::allowedExtensions(new Registry()), array_keys(Settings::MIME_TYPES)) === []);
+check('every rule accepts the type the file is sent with', array_filter(
+    array_keys(Settings::CONTENT_TYPES),
+    static fn (string $ext): bool => Settings::typeMatches($ext, Settings::CONTENT_TYPES[$ext]) !== true
+) === []);
+check('an extension without a rule is not judged', Settings::typeMatches('epub', 'application/epub+zip') === null);
+check('the detected type is compared without case', Settings::typeMatches('doc', 'application/CDFV2') === true);
+check('a zip archive may be a docx', Settings::typeMatches('docx', 'application/zip') === true);
+check('an old Office file may be told apart or not', Settings::typeMatches('xls', 'application/x-ole-storage') === true);
+check('an image is not a PDF', Settings::typeMatches('pdf', 'image/png') === false);
+
+if (class_exists(\finfo::class)) {
+    $finfo  = new \finfo(FILEINFO_MIME_TYPE);
+    $detect = static fn (string $bytes): string => (string) $finfo->buffer($bytes);
+    $html   = '<!DOCTYPE html><html><body><script>alert(1)</script></body></html>';
+
+    check('a real PDF passes', Settings::typeMatches('pdf', $detect("%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF\n")) === true);
+    check('a real PNG passes', Settings::typeMatches('png', $detect(base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='))) === true);
+    check('plain text passes as txt', Settings::typeMatches('txt', $detect("Just some notes.\nSecond line.\n")) === true);
+    check('comma separated values pass as csv', Settings::typeMatches('csv', $detect("name,age\nAnna,30\nBob,40\n")) === true);
+    check('RTF passes', Settings::typeMatches('rtf', $detect('{\rtf1\ansi Hello}')) === true);
+    check('an empty zip passes', Settings::typeMatches('zip', $detect("PK\x05\x06" . str_repeat("\x00", 18))) === true);
+    check('a web page named .pdf is refused', Settings::typeMatches('pdf', $detect($html)) === false);
+    check('a web page named .txt is refused', Settings::typeMatches('txt', $detect($html)) === false);
+    check('a web page named .jpg is refused', Settings::typeMatches('jpg', $detect($html)) === false);
+    check('a web page named .docx is refused', Settings::typeMatches('docx', $detect($html)) === false);
+    check('a PDF named .png is refused', Settings::typeMatches('png', $detect("%PDF-1.4\n%%EOF\n")) === false);
+}
 
 finish();

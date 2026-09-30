@@ -73,35 +73,6 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
     public const MAX_PENDING_UPLOADS = 50;
 
     /**
-     * The content types downloads are sent with, by extension. The type is taken from
-     * the name rather than sniffed from the bytes, so a file that is not what its name
-     * says is never sent as a page or a script; anything else is a plain octet stream.
-     */
-    private const CONTENT_TYPES = [
-        'pdf'  => 'application/pdf',
-        'doc'  => 'application/msword',
-        'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'odt'  => 'application/vnd.oasis.opendocument.text',
-        'rtf'  => 'application/rtf',
-        'txt'  => 'text/plain',
-        'csv'  => 'text/csv',
-        'xls'  => 'application/vnd.ms-excel',
-        'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'ods'  => 'application/vnd.oasis.opendocument.spreadsheet',
-        'ppt'  => 'application/vnd.ms-powerpoint',
-        'pptx' => 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-        'odp'  => 'application/vnd.oasis.opendocument.presentation',
-        'zip'  => 'application/zip',
-        'jpg'  => 'image/jpeg',
-        'jpeg' => 'image/jpeg',
-        'png'  => 'image/png',
-        'gif'  => 'image/gif',
-        'webp' => 'image/webp',
-        'mp3'  => 'audio/mpeg',
-        'mp4'  => 'video/mp4',
-    ];
-
-    /**
      * Stored files a save removed from an item's fields, by context and item id,
      * deleted once the save has gone through.
      *
@@ -439,6 +410,22 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
             throw new \RuntimeException(Text::_('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_ERROR_UNSAFE'), 400);
         }
 
+        // The content must be what the extension says, as far as it can be told.
+        $detected = $this->detectType((string) $file['tmp_name']);
+        $matches  = $detected === null ? null : Settings::typeMatches($extension, $detected);
+
+        if ($matches === false) {
+            throw new \RuntimeException(Text::sprintf('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_ERROR_TYPE_MISMATCH', $extension), 400);
+        }
+
+        if ($matches === null) {
+            Log::add(
+                \sprintf('Upload of a .%s file accepted without a content check (detected: %s).', $extension, $detected ?? 'unavailable'),
+                Log::WARNING,
+                'plg_fields_prettyprotecteddownloads'
+            );
+        }
+
         $storage = Storage::fromParams($this->params);
 
         try {
@@ -664,6 +651,24 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
     }
 
     /**
+     * The type a file's content is detected as, or null when it cannot be told.
+     *
+     * @param   string  $file  The absolute path.
+     *
+     * @return  ?string
+     */
+    private function detectType(string $file): ?string
+    {
+        if (!class_exists(\finfo::class)) {
+            return null;
+        }
+
+        $type = (new \finfo(FILEINFO_MIME_TYPE))->file($file);
+
+        return \is_string($type) && $type !== '' ? $type : null;
+    }
+
+    /**
      * Stream a file as an attachment and end the request.
      *
      * @param   string  $file  The absolute path.
@@ -673,7 +678,7 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
      */
     private function send(string $file, string $name): never
     {
-        $mime  = self::CONTENT_TYPES[Entries::extension($file)] ?? 'application/octet-stream';
+        $mime  = Settings::CONTENT_TYPES[Entries::extension($file)] ?? 'application/octet-stream';
         $ascii = (string) preg_replace('/[^\x20-\x7E]|["\\\\]/', '_', $name);
 
         while (ob_get_level()) {
