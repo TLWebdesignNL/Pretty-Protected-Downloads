@@ -238,7 +238,7 @@ final class Settings
     }
 
     /**
-     * Seconds a download token stays valid.
+     * Seconds a download token stays valid: the setting in minutes, 1 to 1440.
      *
      * @param   Registry  $params  The plugin parameters.
      *
@@ -246,6 +246,6 @@ final class Settings
      */
     public static function tokenLifetime(Registry $params): int
     {
-        return max(1, (int) $params->get('token_lifetime', 30)) * 60;
+        return min(1440, max(1, (int) $params->get('token_lifetime', 30))) * 60;
     }
 }

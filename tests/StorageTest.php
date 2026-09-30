@@ -29,6 +29,7 @@ check('outside without a path: not configured', (new Storage(Storage::OUTSIDE, '
 check('inside without a path: the default folder', (new Storage(Storage::WEBROOT, '', $site))->path() === $site . '/' . Storage::DEFAULT_WEBROOT_FOLDER);
 check('inside: a relative path is read from the site root', (new Storage(Storage::WEBROOT, 'secret', $site))->path() === $site . '/secret');
 check('the settings pick the path of the chosen method', Storage::fromParams(new Registry(['storage_method' => 'webroot', 'storage_path' => '/nope', 'storage_path_webroot' => 'x']))->path() === JPATH_ROOT . '/x');
+check('"." and ".." are resolved', (new Storage(Storage::WEBROOT, './a/../b/./c', $site))->path() === $site . '/b/c');
 check('an unknown method is treated as outside', Storage::fromParams(new Registry(['storage_method' => 'bogus', 'storage_path' => $outside]))->path() === $outside);
 
 group('Inside or outside the web root');
@@ -49,6 +50,9 @@ check('the default folder is fine', !(new Storage(Storage::WEBROOT, '', $site))-
 check('a sibling of the site is fine', !(new Storage(Storage::OUTSIDE, $outside, $site))->isForbidden());
 check('a refused folder is not prepared', throws(static fn () => (new Storage(Storage::OUTSIDE, $site, $site))->prepare()) && !is_file($site . '/.htaccess'));
 check('and the status says so', (new Storage(Storage::WEBROOT, 'administrator', $site))->status()['forbidden']);
+check('".." through a folder that does not exist reaches no Joomla folder', (new Storage(Storage::WEBROOT, 'nothere/../images', $site))->isForbidden());
+check('nor the site root', (new Storage(Storage::WEBROOT, 'nothere/..', $site))->isForbidden());
+check('nor a folder above it', (new Storage(Storage::OUTSIDE, $site . '/nothere/../..', $site))->isForbidden());
 
 group('Preparing the folder');
 $storage = new Storage(Storage::OUTSIDE, $outside, $site);
@@ -59,6 +63,16 @@ check('the folder exists', is_dir($outside));
 check('it is closed with .htaccess', str_contains((string) file_get_contents($outside . '/.htaccess'), 'Require all denied'));
 check('and has an empty index', is_file($outside . '/index.html'));
 check('the status now reports it writable and closed', $storage->status()['writable'] && $storage->status()['closed']);
+$open = JPATH_ROOT . '/private/open';
+mkdir($open, 0777, true);
+file_put_contents($open . '/.htaccess', "Require all granted\n");
+$opened = new Storage(Storage::OUTSIDE, $open, $site);
+check('an .htaccess that does not deny access does not count as closed', !$opened->status()['closed']);
+$opened->prepare();
+check('and is replaced by one that does', str_contains((string) file_get_contents($open . '/.htaccess'), 'Require all denied') && $opened->status()['closed']);
+file_put_contents($open . '/.htaccess', "# mine\nRequire all denied\n");
+$opened->prepare();
+check('one that already denies access is left alone', str_starts_with((string) file_get_contents($open . '/.htaccess'), '# mine'));
 check('an unconfigured folder refuses to prepare', throws(static fn () => (new Storage(Storage::OUTSIDE, '', $site))->prepare()));
 
 group('Reaching files');

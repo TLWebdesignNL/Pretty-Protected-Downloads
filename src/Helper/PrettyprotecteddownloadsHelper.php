@@ -103,7 +103,8 @@ final class PrettyprotecteddownloadsHelper
     /**
      * An article or a contact: shown when published or archived, within its dates, in
      * a published category, and open to the user on both its own access level and
-     * its category's.
+     * its category's. A user who may edit the item, or change its state, sees it
+     * whatever its state and dates, as the component shows them a draft to preview.
      *
      * @param   string  $context  The fields context.
      * @param   int     $id       The item id.
@@ -131,16 +132,20 @@ final class PrettyprotecteddownloadsHelper
             return null;
         }
 
+        $asset   = $shape['asset'] . '.' . $id;
         $now     = Factory::getDate()->toSql();
         $levels  = $user->getAuthorisedViewLevels();
-        $visible = \in_array((int) $row->state, [1, 2], true)
+        $preview = $user->authorise('core.edit.state', $asset) || $user->authorise('core.edit', $asset);
+        $visible = ($preview || (
+                \in_array((int) $row->state, [1, 2], true)
+                && (empty($row->publish_up) || $row->publish_up <= $now)
+                && (empty($row->publish_down) || $row->publish_down >= $now)
+            ))
             && (int) $row->category_published > 0
-            && (empty($row->publish_up) || $row->publish_up <= $now)
-            && (empty($row->publish_down) || $row->publish_down > $now)
             && \in_array((int) $row->access, $levels, true)
             && \in_array((int) $row->category_access, $levels, true);
 
-        return $this->access($visible, $shape['asset'] . '.' . $id, (int) $row->created_by, $user);
+        return $this->access($visible, $asset, (int) $row->created_by, $user);
     }
 
     /**
@@ -270,8 +275,8 @@ final class PrettyprotecteddownloadsHelper
      * A Pretty Protected Downloads field of a context with its value for one item, or null.
      *
      * The field is looked up by name, or by "field{id}" as it is called inside a
-     * subform. A field that only appears inside subforms has no value of its own, so its
-     * entries are then collected from the subforms that contain it.
+     * subform. Its entries are those of its own value and those it holds in every
+     * subform of the item, since the same field can be both.
      *
      * @param   string  $context  The fields context.
      * @param   string  $name     The field name.
@@ -315,11 +320,7 @@ final class PrettyprotecteddownloadsHelper
             return null;
         }
 
-        $field->entries = Entries::decode($field->value ?? '');
-
-        if ($field->entries === []) {
-            $field->entries = $this->entriesInSubforms($context, (int) $field->id, $itemId);
-        }
+        $field->entries = [...Entries::decode($field->value ?? ''), ...$this->entriesInSubforms($context, (int) $field->id, $itemId)];
 
         unset($field->value);
 

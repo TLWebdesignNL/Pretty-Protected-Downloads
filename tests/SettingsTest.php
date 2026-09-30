@@ -42,6 +42,7 @@ check('0 leaves only the PHP limit', Settings::maxBytes(new Registry(['max_size'
 group('Download button lifetime');
 check('minutes become seconds', Settings::tokenLifetime(new Registry(['token_lifetime' => 15])) === 900);
 check('at least one minute', Settings::tokenLifetime(new Registry(['token_lifetime' => 0])) === 60);
+check('at most a day, whatever the form was sent', Settings::tokenLifetime(new Registry(['token_lifetime' => 999999])) === 1440 * 60);
 
 group('Clean-up grace');
 check('a week by default', Settings::cleanupGrace(new Registry()) === 7 * 86400);

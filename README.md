@@ -109,7 +109,7 @@ A download is a `POST` to `index.php?option=com_ajax&group=fields&plugin=prettyp
 1. The Joomla form token of the visitor's session is valid.
 2. The download token was issued to this session, for exactly this file, article and field, and has not expired. The button asks for it (`task=token`, also a `POST` with the form token) the moment it is pressed, and it is only issued when checks 3 to 5 below hold.
 3. The visitor could see the item the field is on:
-   - an **article** or **contact** when it is published or archived, within its publish up and publish down dates, in a published category, and the visitor has both its access level and the category's;
+   - an **article** or **contact** when it is published or archived, within its publish up and publish down dates, in a published category, and the visitor has both its access level and the category's. A visitor who may edit the item, or change its state, can download from it whatever its state and dates, as they can preview it;
    - a **category** when Joomla's own category tree holds it for this visitor, which means it and every category above it are published and accessible;
    - a **user profile** only for the user it belongs to, when the account is not blocked.
 4. The field is published, and its access level, and that of its field group, is one of the visitor's.

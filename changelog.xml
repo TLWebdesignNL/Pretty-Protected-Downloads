@@ -12,6 +12,11 @@
             <item>Requires Joomla 5.3 or later. The plugin is now constructed the way Joomla 7 expects, and no longer uses APIs that Joomla 6 deprecates.</item>
         </change>
         <fix>
+            <item>Editors can download from unpublished and scheduled articles and contacts they may edit, as they can preview them.</item>
+            <item>A field used both directly on an item and inside a subform of it now serves the files of both.</item>
+            <item>A storage folder whose .htaccess does not deny access is closed with the plugin's own rules, and the storage status only reports a folder as closed when its .htaccess really denies access.</item>
+            <item>A storage path with "." or ".." in it is resolved before it is checked, so it can no longer step past the check that refuses the site root and Joomla's own folders.</item>
+            <item>The download button lifetime is capped at a day on the server too, not only in the settings form.</item>
             <item>Downloads now work on pages served from Joomla's view cache (System Cache: Conservative) and from the System - Page Cache plugin. A button fetches a fresh download token when it is pressed, instead of sending the one the cached page was rendered with for another visitor.</item>
         </fix>
     </changelog>

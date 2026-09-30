@@ -142,6 +142,10 @@ $db->insert('fields_values', ['field_id' => 105, 'item_id' => '1', 'value' => js
 $db->insert('fields_values', ['field_id' => 107, 'item_id' => '1', 'value' => $value($d)]);
 $db->insert('fields_values', ['field_id' => 109, 'item_id' => '5', 'value' => $value($u)]);
 $db->insert('fields_values', ['field_id' => 110, 'item_id' => '10', 'value' => $value($k)]);
+$both = entry('both');
+$row  = entry('row');
+$db->insert('fields_values', ['field_id' => 106, 'item_id' => '13', 'value' => $value($both)]);
+$db->insert('fields_values', ['field_id' => 105, 'item_id' => '13', 'value' => json_encode(['row0' => ['field106' => [$row]]])]);
 
 $guest   = new User([1]);
 $member  = new User([1, 2], [], 9);
@@ -162,6 +166,11 @@ foreach ($articles as $id => [$label, $state, $catid, $access, $up, $down]) {
 }
 
 check('a visitor with the level sees the article on it', $helper->item('com_content.article', 7, $special)->visible);
+check('an editor of the article sees it unpublished, to preview it', $helper->item('com_content.article', 2, $editor)->visible);
+check('an editor of another article does not', !$helper->item('com_content.article', 2, new User([1], ['core.edit com_content.article.1'], 9))->visible);
+check('Edit State shows an article before its publish date', $helper->item('com_content.article', 5, new User([1], ['core.edit.state com_content.article.5'], 9))->visible);
+check('an editor still needs a published category', !$helper->item('com_content.article', 9, new User([1], ['core.edit com_content.article.9'], 9))->visible);
+check('and the access level', !$helper->item('com_content.article', 7, new User([1], ['core.edit com_content.article.7'], 9))->visible);
 check('and the one in the category on it', $helper->item('com_content.article', 8, $special)->visible);
 
 group('Who edits an article');
@@ -215,6 +224,7 @@ check('not a field that does not exist', $helper->field('com_content.article', '
 check('a field in no group has no group state', $helper->field('com_content.article', 'files', 1)->group_state === null);
 check('a grouped field carries its group state and access', (int) $helper->field('com_content.article', 'in-special-group', 1)->group_access === 3);
 check('a field used only in a subform lists the subform\'s entries', $helper->field('com_content.article', 'field106', 1)->entries === [$c]);
+check('a field with a value of its own and in a subform lists both', $helper->field('com_content.article', 'child', 13)->entries === [$both, $row]);
 
 group('Stored files of one item');
 $stored = $helper->storedFilenames('com_content.article', 1);

@@ -120,7 +120,7 @@ HTACCESS;
             $path = rtrim($this->siteRoot, '/\\') . '/' . $path;
         }
 
-        return $path;
+        return self::normalise($path);
     }
 
     /**
@@ -206,8 +206,10 @@ HTACCESS;
         }
 
         // Written in both modes: outside the web root it costs nothing, and it still
-        // protects a folder that was meant to be outside but turns out not to be.
-        if (!is_file($path . '/.htaccess')) {
+        // protects a folder that was meant to be outside but turns out not to be. One
+        // that is already there but does not deny access is replaced, since a rule
+        // that grants access next to ours would win.
+        if (!self::isClosed($path)) {
             @file_put_contents($path . '/.htaccess', self::HTACCESS);
         }
 
@@ -348,7 +350,7 @@ HTACCESS;
             'writable'      => $exists && is_writable($path),
             'creatable'     => !$exists && $path !== '' && is_writable($this->nearestExisting($path)),
             'insideWebroot' => $this->isInsideWebroot(),
-            'closed'        => $exists && is_file($path . '/.htaccess'),
+            'closed'        => $exists && self::isClosed($path),
         ];
     }
 
@@ -397,6 +399,49 @@ HTACCESS;
         }
 
         return $path;
+    }
+
+    /**
+     * Whether a folder's .htaccess denies all access.
+     *
+     * @param   string  $path  The folder.
+     *
+     * @return  bool
+     */
+    private static function isClosed(string $path): bool
+    {
+        $rules = is_file($path . '/.htaccess') ? (string) @file_get_contents($path . '/.htaccess') : '';
+
+        return preg_match('/^\s*Require\s+all\s+denied\s*$/mi', $rules) === 1;
+    }
+
+    /**
+     * A path with its "." and ".." segments resolved without looking at the disk, so
+     * a folder that does not exist yet can not be used to step past the checks.
+     *
+     * @param   string  $path  An absolute path.
+     *
+     * @return  string
+     */
+    private static function normalise(string $path): string
+    {
+        $path   = str_replace('\\', '/', $path);
+        $prefix = preg_match('#^([a-z]:)?/#i', $path, $matches) ? $matches[0] : '';
+        $parts  = [];
+
+        foreach (explode('/', substr($path, \strlen($prefix))) as $part) {
+            if ($part === '' || $part === '.') {
+                continue;
+            }
+
+            if ($part === '..') {
+                array_pop($parts);
+            } else {
+                $parts[] = $part;
+            }
+        }
+
+        return rtrim($prefix . implode('/', $parts), '/') ?: $prefix;
     }
 
     /**
