@@ -616,7 +616,7 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
             $this->fail(403);
         }
 
-        $entry = $this->find($field->entries, $uuid);
+        $entry = Entries::find($field->entries, $uuid);
 
         if (!$entry && Entries::belongsTogether($uuid, $filename) && (new PendingUploads($app->getSession(), Settings::cleanupGrace($this->params)))->has($uuid, $filename, $context, $itemId)) {
             $entry = ['uuid' => $uuid, 'filename' => $filename];
@@ -658,7 +658,7 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
             throw new \RuntimeException(Text::_('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_ERROR_EXPIRED'), 403);
         }
 
-        $refusal = $this->downloadable($user, $context, $itemId, $name, $uuid);
+        $refusal = $this->helper()->downloadable($user, $context, $itemId, $name, $uuid);
 
         if (\is_string($refusal)) {
             throw new \RuntimeException(Text::_($refusal), 403);
@@ -695,7 +695,7 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
             $this->refuse('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_ERROR_EXPIRED');
         }
 
-        $entry = $this->downloadable($user, $context, $itemId, $name, $uuid);
+        $entry = $this->helper()->downloadable($user, $context, $itemId, $name, $uuid);
 
         if (\is_string($entry)) {
             $this->refuse($entry);
@@ -708,46 +708,6 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
         }
 
         $this->send($file, Entries::downloadName($entry));
-    }
-
-    /**
-     * The entry a visitor asks to download, when they may: the item is visible to
-     * them, the field and its group are published and on one of their access levels,
-     * and the field lists the file. Otherwise the language key of the reason.
-     *
-     * @param   User    $user     The visitor.
-     * @param   string  $context  The fields context.
-     * @param   int     $itemId   The item.
-     * @param   string  $name     The field name.
-     * @param   string  $uuid     The entry uuid.
-     *
-     * @return  array|string
-     */
-    private function downloadable(User $user, string $context, int $itemId, string $name, string $uuid): array|string
-    {
-        if ($uuid === '' || $itemId <= 0 || $name === '') {
-            return 'PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_ERROR_NOT_FOUND';
-        }
-
-        $item = $this->helper()->item($context, $itemId, $user);
-
-        if (!$item || !$item->visible) {
-            return 'PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_ERROR_NO_ACCESS';
-        }
-
-        $levels = $user->getAuthorisedViewLevels();
-        $field  = $this->helper()->field($context, $name, $itemId);
-
-        if (
-            !$field
-            || (int) $field->state !== 1
-            || !\in_array((int) $field->access, $levels, true)
-            || ($field->group_state !== null && ((int) $field->group_state !== 1 || !\in_array((int) $field->group_access, $levels, true)))
-        ) {
-            return 'PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_ERROR_NO_ACCESS';
-        }
-
-        return $this->find($field->entries, $uuid) ?? 'PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_ERROR_NOT_FOUND';
     }
 
     /**
@@ -825,25 +785,6 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
-
-    /**
-     * The entry with this uuid, or null.
-     *
-     * @param   array[]  $entries  The entries.
-     * @param   string   $uuid     The uuid.
-     *
-     * @return  ?array
-     */
-    private function find(array $entries, string $uuid): ?array
-    {
-        foreach ($entries as $entry) {
-            if ($uuid !== '' && ($entry['uuid'] ?? '') === $uuid && Entries::belongsTogether($uuid, (string) ($entry['filename'] ?? ''))) {
-                return $entry;
-            }
-        }
-
-        return null;
-    }
 
     /**
      * The type a file's content is detected as, or null when it cannot be told.

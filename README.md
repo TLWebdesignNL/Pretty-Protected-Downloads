@@ -139,7 +139,7 @@ A file that was uploaded but never saved is cleaned up automatically: once a day
 
 ## Development
 
-The plugin has no build step and no Composer dependencies. To run the tests:
+The plugin has no build step and no Composer dependencies. The tests need PHP with the `pdo_sqlite` and `fileinfo` extensions, which most builds include. To run them:
 
 ```bash
 php tests/run.php

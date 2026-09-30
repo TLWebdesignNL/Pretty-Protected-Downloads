@@ -123,6 +123,25 @@ final class Entries
     }
 
     /**
+     * The entry with this uuid, when its stored name is the one generated for it.
+     *
+     * @param   array[]  $entries  The entries.
+     * @param   string   $uuid     The uuid.
+     *
+     * @return  ?array
+     */
+    public static function find(array $entries, string $uuid): ?array
+    {
+        foreach ($entries as $entry) {
+            if ($uuid !== '' && ($entry['uuid'] ?? '') === $uuid && self::belongsTogether($uuid, (string) ($entry['filename'] ?? ''))) {
+                return $entry;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Whether a stored filename is the one generated for this uuid.
      *
      * @param   string  $uuid      The entry uuid.

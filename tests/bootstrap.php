@@ -19,8 +19,9 @@
  *
  * What is covered is everything that decides which file a request may reach: the
  * stored value, the storage folder, the download tokens, the record of unsaved
- * uploads and who may edit a field. The parts that need a running Joomla (the
- * database lookups, the events, the layouts) are not.
+ * uploads, who may edit a field, and the database lookups behind every access
+ * decision (run on SQLite, see Database.php). The parts that need a running Joomla
+ * (the request handlers, the events, the layouts) are not.
  *
  * Run them all with: php tests/run.php
  */
@@ -109,6 +110,14 @@ namespace {
     }
 
     /**
+     * The time Factory::getDate() reports, or null for now.
+     */
+    final class TestClock
+    {
+        public static ?int $now = null;
+    }
+
+    /**
      * An in-memory session.
      */
     final class TestSession
@@ -162,14 +171,16 @@ namespace Joomla\CMS\User {
      */
     class User
     {
-        public bool $guest = false;
+        public bool $guest;
 
         /**
          * @param   int[]     $levels  The view levels.
          * @param   string[]  $grants  "action asset" pairs that are allowed; "core.admin" alone for a super user.
+         * @param   int       $id      The user id; 0 is a guest.
          */
-        public function __construct(private array $levels = [1], private array $grants = [])
+        public function __construct(private array $levels = [1], private array $grants = [], public int $id = 0)
         {
+            $this->guest = $id === 0;
         }
 
         public function getAuthorisedViewLevels(): array
@@ -181,6 +192,38 @@ namespace Joomla\CMS\User {
         {
             return \in_array($asset === null ? $action : $action . ' ' . $asset, $this->grants, true);
         }
+    }
+}
+
+namespace Joomla\CMS {
+    /**
+     * The clock the visibility checks read; set TestClock::$now to move it.
+     */
+    class Factory
+    {
+        public static function getDate(): object
+        {
+            return new class () {
+                public function toSql(): string
+                {
+                    return gmdate('Y-m-d H:i:s', \TestClock::$now ?? time());
+                }
+            };
+        }
+    }
+}
+
+namespace Joomla\CMS\Extension {
+    interface ExtensionManagerInterface
+    {
+        public function bootComponent($component);
+    }
+}
+
+namespace Joomla\CMS\Categories {
+    interface CategoryServiceInterface
+    {
+        public function getCategory(array $options = [], $section = '');
     }
 }
 

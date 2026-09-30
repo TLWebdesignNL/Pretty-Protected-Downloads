@@ -24,6 +24,7 @@ jobs:
       - uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
+          extensions: fileinfo, pdo_sqlite
           coverage: none
 
       - name: Lint

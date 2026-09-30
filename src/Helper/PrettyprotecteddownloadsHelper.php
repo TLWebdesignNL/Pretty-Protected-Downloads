@@ -210,6 +210,46 @@ final class PrettyprotecteddownloadsHelper
     }
 
     /**
+     * The entry a visitor asks to download, when they may: the item is visible to
+     * them, the field and its group are published and on one of their access levels,
+     * and the field lists the file. Otherwise the language key of the reason.
+     *
+     * @param   User    $user     The visitor.
+     * @param   string  $context  The fields context.
+     * @param   int     $itemId   The item.
+     * @param   string  $name     The field name.
+     * @param   string  $uuid     The entry uuid.
+     *
+     * @return  array|string
+     */
+    public function downloadable(User $user, string $context, int $itemId, string $name, string $uuid): array|string
+    {
+        if ($uuid === '' || $itemId <= 0 || $name === '') {
+            return 'PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_ERROR_NOT_FOUND';
+        }
+
+        $item = $this->item($context, $itemId, $user);
+
+        if (!$item || !$item->visible) {
+            return 'PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_ERROR_NO_ACCESS';
+        }
+
+        $levels = $user->getAuthorisedViewLevels();
+        $field  = $this->field($context, $name, $itemId);
+
+        if (
+            !$field
+            || (int) $field->state !== 1
+            || !\in_array((int) $field->access, $levels, true)
+            || ($field->group_state !== null && ((int) $field->group_state !== 1 || !\in_array((int) $field->group_access, $levels, true)))
+        ) {
+            return 'PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_ERROR_NO_ACCESS';
+        }
+
+        return Entries::find($field->entries, $uuid) ?? 'PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_ERROR_NOT_FOUND';
+    }
+
+    /**
      * @param   bool    $visible  Whether the user may see the item.
      * @param   string  $asset    The asset its edit permissions are checked on.
      * @param   int     $owner    The user who created it.
