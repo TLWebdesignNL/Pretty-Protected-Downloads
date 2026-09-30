@@ -115,7 +115,7 @@ final class PrettyprotecteddownloadsHelper
     {
         $shape = self::CONTENT[$context];
         $db    = $this->db;
-        $query = $db->getQuery(true)
+        $query = $db->createQuery()
             ->select($db->quoteName(
                 ['a.id', 'a.' . $shape['state'], 'a.access', 'a.created_by', 'a.publish_up', 'a.publish_down', 'c.access', 'c.published'],
                 ['id', 'state', 'access', 'created_by', 'publish_up', 'publish_down', 'category_access', 'category_published']
@@ -157,7 +157,7 @@ final class PrettyprotecteddownloadsHelper
     private function category(string $component, int $id, User $user): ?object
     {
         $db    = $this->db;
-        $query = $db->getQuery(true)
+        $query = $db->createQuery()
             ->select($db->quoteName('created_user_id'))
             ->from($db->quoteName('#__categories'))
             ->where($db->quoteName('id') . ' = :id')
@@ -189,7 +189,7 @@ final class PrettyprotecteddownloadsHelper
     private function user(int $id, User $user): ?object
     {
         $db    = $this->db;
-        $query = $db->getQuery(true)
+        $query = $db->createQuery()
             ->select($db->quoteName('block'))
             ->from($db->quoteName('#__users'))
             ->where($db->quoteName('id') . ' = :id')
@@ -244,7 +244,7 @@ final class PrettyprotecteddownloadsHelper
         $db    = $this->db;
         $item  = (string) $itemId;
         $type  = self::TYPE;
-        $query = $db->getQuery(true)
+        $query = $db->createQuery()
             ->select($db->quoteName(
                 ['f.id', 'f.name', 'f.context', 'f.params', 'f.access', 'f.state', 'g.access', 'g.state', 'fv.value'],
                 ['id', 'name', 'context', 'params', 'access', 'state', 'group_access', 'group_state', 'value']
@@ -385,7 +385,7 @@ final class PrettyprotecteddownloadsHelper
     {
         $db    = $this->db;
         $type  = self::TYPE;
-        $query = $db->getQuery(true)
+        $query = $db->createQuery()
             ->select($db->quoteName('id'))
             ->from($db->quoteName('#__fields'))
             ->where($db->quoteName('type') . ' = :type')
@@ -410,7 +410,7 @@ final class PrettyprotecteddownloadsHelper
     public function referencedFilenames(string $exceptContext = '', int $exceptItem = 0): array
     {
         $db    = $this->db;
-        $query = $db->getQuery(true)
+        $query = $db->createQuery()
             ->select($db->quoteName('fv.value'))
             ->from($db->quoteName('#__fields_values', 'fv'))
             ->join('INNER', $db->quoteName('#__fields', 'f'), $db->quoteName('f.id') . ' = ' . $db->quoteName('fv.field_id'))
@@ -447,7 +447,7 @@ final class PrettyprotecteddownloadsHelper
     {
         $db    = $this->db;
         $item  = (string) $itemId;
-        $query = $db->getQuery(true)
+        $query = $db->createQuery()
             ->select($db->quoteName(['f.id', 'f.name', 'f.fieldparams', 'fv.value'], ['id', 'name', 'fieldparams', 'value']))
             ->from($db->quoteName('#__fields', 'f'))
             ->join(

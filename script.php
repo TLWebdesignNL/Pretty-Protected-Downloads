@@ -8,11 +8,11 @@
  * @license     GNU General Public License version 2 or later; see LICENSE.txt
  */
 
-// No direct access to this file
 \defined('_JEXEC') or die;
 
 use Joomla\CMS\Factory;
 use Joomla\CMS\Installer\InstallerAdapter;
+use Joomla\CMS\Installer\InstallerScriptInterface;
 use Joomla\CMS\Language\Text;
 use Joomla\CMS\Log\Log;
 use Joomla\Database\DatabaseInterface;
@@ -20,29 +20,63 @@ use Joomla\Database\DatabaseInterface;
 /**
  * Script file of the Pretty Protected Downloads fields plugin.
  */
-class plgFieldsPrettyprotecteddownloadsInstallerScript
-{
+return new class () implements InstallerScriptInterface {
     /**
      * Joomla 5.0 brought the event classes the plugin subscribes with.
      *
      * @var string
      */
-    protected string $minimumJoomla = '5.0';
+    private string $minimumJoomla = '5.0';
 
     /**
      * @var string
      */
-    protected string $minimumPhp = '8.1';
+    private string $minimumPhp = '8.1';
 
     /**
-     * Function called before extension installation/update/removal procedure commences
+     * @param   InstallerAdapter  $adapter  The adapter calling this method.
      *
-     * @param   string            $type    The type of change (install, update or discover_install, not uninstall)
-     * @param   InstallerAdapter  $parent  The class calling this method
-     *
-     * @return  boolean  True on success
+     * @return  bool
      */
-    public function preflight(string $type, InstallerAdapter $parent): bool
+    public function install(InstallerAdapter $adapter): bool
+    {
+        return true;
+    }
+
+    /**
+     * @param   InstallerAdapter  $adapter  The adapter calling this method.
+     *
+     * @return  bool
+     */
+    public function update(InstallerAdapter $adapter): bool
+    {
+        return true;
+    }
+
+    /**
+     * The stored files are left where they are: they are the site's documents, not the
+     * plugin's, and a folder outside the web root may not even be the plugin's to empty.
+     *
+     * @param   InstallerAdapter  $adapter  The adapter calling this method.
+     *
+     * @return  bool
+     */
+    public function uninstall(InstallerAdapter $adapter): bool
+    {
+        echo Text::_('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_INSTALLERSCRIPT_UNINSTALL');
+
+        return true;
+    }
+
+    /**
+     * Refuse to install on a PHP or Joomla version the plugin does not run on.
+     *
+     * @param   string            $type     install, update, discover_install or uninstall.
+     * @param   InstallerAdapter  $adapter  The adapter calling this method.
+     *
+     * @return  bool
+     */
+    public function preflight(string $type, InstallerAdapter $adapter): bool
     {
         if ($type === 'uninstall') {
             return true;
@@ -64,51 +98,39 @@ class plgFieldsPrettyprotecteddownloadsInstallerScript
     }
 
     /**
-     * Function called after extension installation/update/removal procedure commences
+     * Switch the plugin on after a first install, and say what happened. A discovered
+     * install never calls install(), so this is done here rather than there.
      *
-     * @param   string            $type    The type of change (install, update or discover_install, not uninstall)
-     * @param   InstallerAdapter  $parent  The class calling this method
+     * @param   string            $type     install, update, discover_install or uninstall.
+     * @param   InstallerAdapter  $adapter  The adapter calling this method.
      *
-     * @return  boolean  True on success
+     * @return  bool
      */
-    public function postflight(string $type, InstallerAdapter $parent): bool
+    public function postflight(string $type, InstallerAdapter $adapter): bool
     {
         if ($type === 'install' || $type === 'discover_install') {
             // A field type that is installed but switched off simply is not offered, so
             // switch it on: the storage settings are the step that needs a decision.
-            $db    = Factory::getContainer()->get(DatabaseInterface::class);
-            $query = $db->getQuery(true)
+            $db        = Factory::getContainer()->get(DatabaseInterface::class);
+            $extension = 'plugin';
+            $folder    = 'fields';
+            $element   = 'prettyprotecteddownloads';
+            $query     = $db->createQuery()
                 ->update($db->quoteName('#__extensions'))
                 ->set($db->quoteName('enabled') . ' = 1')
-                ->where($db->quoteName('type') . ' = ' . $db->quote('plugin'))
-                ->where($db->quoteName('folder') . ' = ' . $db->quote('fields'))
-                ->where($db->quoteName('element') . ' = ' . $db->quote('prettyprotecteddownloads'));
+                ->where($db->quoteName('type') . ' = :type')
+                ->where($db->quoteName('folder') . ' = :folder')
+                ->where($db->quoteName('element') . ' = :element')
+                ->bind(':type', $extension)
+                ->bind(':folder', $folder)
+                ->bind(':element', $element);
             $db->setQuery($query)->execute();
 
             echo Text::_('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_INSTALLERSCRIPT_INSTALL');
-        }
-
-        if ($type === 'update') {
+        } elseif ($type === 'update') {
             echo Text::_('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_INSTALLERSCRIPT_UPDATE');
         }
 
         return true;
     }
-
-    /**
-     * Method to uninstall the extension
-     *
-     * The stored files are left where they are: they are the site's documents, not the
-     * plugin's, and a folder outside the web root may not even be the plugin's to empty.
-     *
-     * @param   InstallerAdapter  $parent  The class calling this method
-     *
-     * @return  boolean  True on success
-     */
-    public function uninstall(InstallerAdapter $parent): bool
-    {
-        echo Text::_('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_INSTALLERSCRIPT_UNINSTALL');
-
-        return true;
-    }
-}
+};

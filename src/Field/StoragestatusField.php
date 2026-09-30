@@ -13,11 +13,11 @@ namespace TLWeb\Plugin\Fields\Prettyprotecteddownloads\Field;
 use Joomla\CMS\Factory;
 use Joomla\CMS\Form\FormField;
 use Joomla\CMS\HTML\HTMLHelper;
-use Joomla\CMS\Http\HttpFactory;
 use Joomla\CMS\Language\Text;
 use Joomla\CMS\Session\Session;
 use Joomla\CMS\Uri\Uri;
 use Joomla\Database\DatabaseInterface;
+use Joomla\Http\HttpFactory;
 use TLWeb\Plugin\Fields\Prettyprotecteddownloads\Helper\PrettyprotecteddownloadsHelper;
 use TLWeb\Plugin\Fields\Prettyprotecteddownloads\Helper\Settings;
 use TLWeb\Plugin\Fields\Prettyprotecteddownloads\Helper\Storage;
@@ -115,7 +115,7 @@ class StoragestatusField extends FormField
         $url = Uri::root() . str_replace('%2F', '/', rawurlencode((string) $storage->relativeToWebroot())) . '/index.html';
 
         try {
-            $code = HttpFactory::getHttp()->get($url, [], 5)->code;
+            $code = (new HttpFactory())->getHttp()->get($url, [], 5)->code;
         } catch (\Throwable $e) {
             return '<span class="badge bg-secondary">' . Text::_('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_STATUS_DIRECT_UNKNOWN') . '</span>';
         }
