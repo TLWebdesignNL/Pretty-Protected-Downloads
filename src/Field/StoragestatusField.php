@@ -18,7 +18,6 @@ use Joomla\CMS\Language\Text;
 use Joomla\CMS\Session\Session;
 use Joomla\CMS\Uri\Uri;
 use Joomla\Database\DatabaseInterface;
-use TLWeb\Plugin\Fields\Prettyprotecteddownloads\Extension\Prettyprotecteddownloads;
 use TLWeb\Plugin\Fields\Prettyprotecteddownloads\Helper\PrettyprotecteddownloadsHelper;
 use TLWeb\Plugin\Fields\Prettyprotecteddownloads\Helper\Settings;
 use TLWeb\Plugin\Fields\Prettyprotecteddownloads\Helper\Storage;
@@ -136,7 +135,8 @@ class StoragestatusField extends FormField
     private function cleanup(Storage $storage): string
     {
         $helper = new PrettyprotecteddownloadsHelper(Factory::getContainer()->get(DatabaseInterface::class), Factory::getApplication());
-        $unused     = $storage->unused($helper->referencedFilenames(), time() - Prettyprotecteddownloads::CLEANUP_GRACE);
+        $grace  = Settings::cleanupGrace(Settings::params());
+        $unused = $storage->unused($helper->referencedFilenames(), time() - $grace);
 
         if ($unused === []) {
             return '<p class="text-muted small mb-0">' . Text::_('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_CLEANUP_NONE') . '</p>';
@@ -145,7 +145,6 @@ class StoragestatusField extends FormField
         $wa = Factory::getApplication()->getDocument()->getWebAssetManager();
         $wa->getRegistry()->addExtensionRegistryFile('plg_fields_prettyprotecteddownloads');
         $wa->useScript('plg_fields_prettyprotecteddownloads.admin');
-        Text::script('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_CLEANUP_CONFIRM');
         Text::script('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_JS_UPLOAD_FAILED');
 
         $url   = Uri::base() . 'index.php?option=com_ajax&group=fields&plugin=prettyprotecteddownloads&format=json&task=cleanup';
@@ -154,7 +153,8 @@ class StoragestatusField extends FormField
         return '<div class="ppd-cleanup">'
             . '<p class="mb-2">' . Text::plural('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_CLEANUP_FOUND_N', \count($unused), HTMLHelper::_('number.bytes', $bytes)) . '</p>'
             . '<button type="button" class="btn btn-outline-danger btn-sm ppd-cleanup-button" data-url="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '"'
-            . ' data-token="' . htmlspecialchars(Session::getFormToken(), ENT_QUOTES, 'UTF-8') . '">'
+            . ' data-token="' . htmlspecialchars(Session::getFormToken(), ENT_QUOTES, 'UTF-8') . '"'
+            . ' data-confirm="' . htmlspecialchars(Text::plural('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_CLEANUP_CONFIRM_N', intdiv($grace, 86400)), ENT_QUOTES, 'UTF-8') . '">'
             . '<span class="icon-trash me-1" aria-hidden="true"></span>' . Text::_('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_CLEANUP_BUTTON') . '</button>'
             . '<div class="ppd-cleanup-result small mt-2" role="status" aria-live="polite"></div>'
             . '</div>';

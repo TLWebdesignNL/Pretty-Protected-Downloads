@@ -43,6 +43,12 @@ group('Download button lifetime');
 check('minutes become seconds', Settings::tokenLifetime(new Registry(['token_lifetime' => 15])) === 900);
 check('at least one minute', Settings::tokenLifetime(new Registry(['token_lifetime' => 0])) === 60);
 
+group('Clean-up grace');
+check('a week by default', Settings::cleanupGrace(new Registry()) === 7 * 86400);
+check('the setting, in days', Settings::cleanupGrace(new Registry(['cleanup_grace' => 30])) === 30 * 86400);
+check('at least a day', Settings::cleanupGrace(new Registry(['cleanup_grace' => 0])) === 86400);
+check('at most a year', Settings::cleanupGrace(new Registry(['cleanup_grace' => 5000])) === 365 * 86400);
+
 group('Content checks');
 check('every default extension has a rule', array_diff(Settings::allowedExtensions(new Registry()), array_keys(Settings::MIME_TYPES)) === []);
 check('every rule accepts the type the file is sent with', array_filter(

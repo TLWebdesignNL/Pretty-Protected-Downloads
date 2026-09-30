@@ -402,9 +402,12 @@ final class PrettyprotecteddownloadsHelper
      * files with the original, so a file removed from one may still be listed on the
      * other and must then stay.
      *
+     * @param   string  $exceptContext  The context of an item whose values do not count, as it is being deleted.
+     * @param   int     $exceptItem     That item's id; 0 when every value counts.
+     *
      * @return  array<string, true>
      */
-    public function referencedFilenames(): array
+    public function referencedFilenames(string $exceptContext = '', int $exceptItem = 0): array
     {
         $db    = $this->db;
         $query = $db->getQuery(true)
@@ -412,6 +415,13 @@ final class PrettyprotecteddownloadsHelper
             ->from($db->quoteName('#__fields_values', 'fv'))
             ->join('INNER', $db->quoteName('#__fields', 'f'), $db->quoteName('f.id') . ' = ' . $db->quoteName('fv.field_id'))
             ->whereIn($db->quoteName('f.type'), [self::TYPE, 'subform'], ParameterType::STRING);
+
+        if ($exceptItem > 0) {
+            $item = (string) $exceptItem;
+            $query->where('(' . $db->quoteName('f.context') . ' <> :exceptcontext OR ' . $db->quoteName('fv.item_id') . ' <> :exceptitem)')
+                ->bind(':exceptcontext', $exceptContext)
+                ->bind(':exceptitem', $item);
+        }
 
         $names = [];
 

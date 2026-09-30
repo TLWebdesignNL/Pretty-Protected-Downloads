@@ -27,6 +27,8 @@ final class Settings
 
     public const DEFAULT_MAX_MB = 20;
 
+    public const DEFAULT_CLEANUP_DAYS = 7;
+
     /**
      * The content types downloads are sent with, by extension. The type is taken from
      * the name rather than sniffed from the bytes, so a file that is not what its name
@@ -220,6 +222,19 @@ final class Settings
         };
 
         return (int) round((float) $matches[1] * $factor);
+    }
+
+    /**
+     * Seconds an upload may wait for its item to be saved before the clean-up may
+     * treat it as unused: the setting in days, 1 to 365.
+     *
+     * @param   Registry  $params  The plugin parameters.
+     *
+     * @return  int
+     */
+    public static function cleanupGrace(Registry $params): int
+    {
+        return min(365, max(1, (int) $params->get('cleanup_grace', self::DEFAULT_CLEANUP_DAYS))) * 86400;
     }
 
     /**

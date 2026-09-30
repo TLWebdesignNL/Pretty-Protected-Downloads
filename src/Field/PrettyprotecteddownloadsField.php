@@ -16,10 +16,10 @@ use Joomla\CMS\Form\FormHelper;
 use Joomla\CMS\Language\Text;
 use Joomla\Database\DatabaseInterface;
 use Joomla\Registry\Registry;
-use TLWeb\Plugin\Fields\Prettyprotecteddownloads\Extension\Prettyprotecteddownloads;
 use TLWeb\Plugin\Fields\Prettyprotecteddownloads\Helper\Entries;
 use TLWeb\Plugin\Fields\Prettyprotecteddownloads\Helper\PendingUploads;
 use TLWeb\Plugin\Fields\Prettyprotecteddownloads\Helper\PrettyprotecteddownloadsHelper;
+use TLWeb\Plugin\Fields\Prettyprotecteddownloads\Helper\Settings;
 
 // phpcs:disable PSR1.Files.SideEffects
 \defined('_JEXEC') or die;
@@ -154,7 +154,7 @@ XML;
         $context = (string) ($this->element['context'] ?? '');
         $itemId  = (int) ($input?->get('id') ?? 0) ?: $this->itemId();
         $known   = self::known($context, $itemId);
-        $pending = new PendingUploads($app->getSession(), Prettyprotecteddownloads::CLEANUP_GRACE);
+        $pending = new PendingUploads($app->getSession(), Settings::cleanupGrace(Settings::params()));
         $kept    = Entries::bound(
             $entries,
             $known ?? [],

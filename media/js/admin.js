@@ -178,7 +178,7 @@
     event.preventDefault();
 
     // eslint-disable-next-line no-alert
-    if (!window.confirm(Joomla.Text._('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_CLEANUP_CONFIRM'))) {
+    if (!window.confirm(button.dataset.confirm)) {
       return;
     }
 

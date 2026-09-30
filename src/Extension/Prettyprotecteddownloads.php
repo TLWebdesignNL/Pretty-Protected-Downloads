@@ -11,10 +11,14 @@
 namespace TLWeb\Plugin\Fields\Prettyprotecteddownloads\Extension;
 
 use Joomla\CMS\Event\CustomFields\BeforePrepareFieldEvent;
+use Joomla\CMS\Event\Model\AfterDeleteEvent;
 use Joomla\CMS\Event\Model\AfterSaveEvent;
+use Joomla\CMS\Event\Model\BeforeDeleteEvent;
 use Joomla\CMS\Event\Model\BeforeSaveEvent;
 use Joomla\CMS\Event\Plugin\AjaxEvent;
+use Joomla\CMS\Event\User\AfterDeleteEvent as UserAfterDeleteEvent;
 use Joomla\CMS\Event\User\AfterSaveEvent as UserAfterSaveEvent;
+use Joomla\CMS\Event\User\BeforeDeleteEvent as UserBeforeDeleteEvent;
 use Joomla\CMS\Event\User\BeforeSaveEvent as UserBeforeSaveEvent;
 use Joomla\CMS\Filter\InputFilter;
 use Joomla\CMS\Form\Form;
@@ -64,19 +68,14 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
     use DatabaseAwareTrait;
 
     /**
-     * How long an upload may wait for its item to be saved before a clean-up may
-     * treat it as unused.
-     */
-    public const CLEANUP_GRACE = 86400;
-
-    /**
      * How many uploads one session may have waiting for their item to be saved.
      */
     public const MAX_PENDING_UPLOADS = 50;
 
     /**
-     * Stored files a save removed from an item's fields, by context and item id,
-     * deleted once the save has gone through.
+     * Stored files a save removed from an item's fields, or that belonged to an item
+     * being deleted, by context and item id, deleted once the save or the delete has
+     * gone through.
      *
      * @var  array<string, string[]>
      */
@@ -93,6 +92,10 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
             'onContentAfterSave'                => 'afterSave',
             'onUserBeforeSave'                  => 'beforeUserSave',
             'onUserAfterSave'                   => 'afterUserSave',
+            'onContentBeforeDelete'             => 'beforeDelete',
+            'onContentAfterDelete'              => 'afterDelete',
+            'onUserBeforeDelete'                => 'beforeUserDelete',
+            'onUserAfterDelete'                 => 'afterUserDelete',
             'onAjaxPrettyprotecteddownloads'    => 'onAjax',
         ]);
     }
@@ -202,6 +205,91 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
         }
     }
 
+    // ── Deleting ──────────────────────────────────────────────────────────────
+
+    /**
+     * Note the stored files of an item that is about to be deleted. Its field values
+     * are removed by the fields system after the delete, possibly before this plugin
+     * gets there, so they are read now.
+     *
+     * @param   BeforeDeleteEvent  $event  The event.
+     *
+     * @return  void
+     */
+    public function beforeDelete(BeforeDeleteEvent $event): void
+    {
+        $item    = $event->getItem();
+        $context = $this->fieldsContext($event->getContext(), $item);
+
+        if ($context !== null) {
+            $this->noteDeleted($context, (int) ($item->id ?? 0));
+        }
+    }
+
+    /**
+     * Delete the files of a deleted item, unless another item still lists them.
+     *
+     * @param   AfterDeleteEvent  $event  The event.
+     *
+     * @return  void
+     */
+    public function afterDelete(AfterDeleteEvent $event): void
+    {
+        $item    = $event->getItem();
+        $context = $this->fieldsContext($event->getContext(), $item);
+
+        if ($context !== null) {
+            $this->deleteRemoved($context, (int) ($item->id ?? 0), true);
+        }
+    }
+
+    /**
+     * @param   UserBeforeDeleteEvent  $event  The event.
+     *
+     * @return  void
+     */
+    public function beforeUserDelete(UserBeforeDeleteEvent $event): void
+    {
+        $this->noteDeleted('com_users.user', (int) ($event->getUser()['id'] ?? 0));
+    }
+
+    /**
+     * @param   UserAfterDeleteEvent  $event  The event.
+     *
+     * @return  void
+     */
+    public function afterUserDelete(UserAfterDeleteEvent $event): void
+    {
+        $itemId = (int) ($event->getUser()['id'] ?? 0);
+
+        if ($event->getDeletingResult()) {
+            $this->deleteRemoved('com_users.user', $itemId, true);
+        } else {
+            unset($this->pendingDeletes['com_users.user:' . $itemId]);
+        }
+    }
+
+    /**
+     * Remember every stored file an item's fields name.
+     *
+     * @param   string  $context  The fields context.
+     * @param   int     $itemId   The item id.
+     *
+     * @return  void
+     */
+    private function noteDeleted(string $context, int $itemId): void
+    {
+        if ($itemId <= 0) {
+            return;
+        }
+
+        $filenames = array_keys($this->helper()->storedFilenames($context, $itemId));
+
+        if ($filenames !== []) {
+            $this->pendingDeletes[$context . ':' . $itemId] = $filenames;
+        }
+    }
+
     /**
      * Compare what an item's fields hold with what is being saved, and remember the
      * stored files that are on their way out.
@@ -254,10 +342,11 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
      *
      * @param   string  $context  The fields context.
      * @param   int     $itemId   The item id.
+     * @param   bool    $deleted  Whether the item itself was deleted, so its own values, if still there, do not count.
      *
      * @return  void
      */
-    private function deleteRemoved(string $context, int $itemId): void
+    private function deleteRemoved(string $context, int $itemId, bool $deleted = false): void
     {
         $key = $context . ':' . $itemId;
 
@@ -265,7 +354,7 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
             return;
         }
 
-        $referenced = $this->helper()->referencedFilenames();
+        $referenced = $deleted ? $this->helper()->referencedFilenames($context, $itemId) : $this->helper()->referencedFilenames();
         $storage    = Storage::fromParams($this->params);
 
         foreach ($this->pendingDeletes[$key] as $filename) {
@@ -329,7 +418,8 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
      * Store an upload for an item's field and return its entry.
      *
      * The entry is not part of the item until the editor saves it; until then the
-     * file belongs to nothing and a clean-up leaves it alone for a day.
+     * file belongs to nothing, and a clean-up leaves it alone for the grace period
+     * set in the plugin.
      *
      * @return  array
      *
@@ -364,7 +454,7 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
             throw new \RuntimeException(Text::_('JERROR_ALERTNOAUTHOR'), 403);
         }
 
-        $pending = new PendingUploads($app->getSession(), self::CLEANUP_GRACE);
+        $pending = new PendingUploads($app->getSession(), Settings::cleanupGrace($this->params));
 
         // Uploads that have since been saved with their item no longer count; the
         // site-wide lookup that tells is only made once the limit is reached.
@@ -526,7 +616,7 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
 
         $entry = $this->find($field->entries, $uuid);
 
-        if (!$entry && Entries::belongsTogether($uuid, $filename) && (new PendingUploads($app->getSession(), self::CLEANUP_GRACE))->has($uuid, $filename, $context, $itemId)) {
+        if (!$entry && Entries::belongsTogether($uuid, $filename) && (new PendingUploads($app->getSession(), Settings::cleanupGrace($this->params)))->has($uuid, $filename, $context, $itemId)) {
             $entry = ['uuid' => $uuid, 'filename' => $filename];
         }
 
@@ -679,7 +769,7 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
         }
 
         $storage = Storage::fromParams($this->params);
-        $unused  = $storage->unused($this->helper()->referencedFilenames(), time() - self::CLEANUP_GRACE);
+        $unused  = $storage->unused($this->helper()->referencedFilenames(), time() - Settings::cleanupGrace($this->params));
         $deleted = 0;
         $bytes   = 0;
 

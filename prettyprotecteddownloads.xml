@@ -76,6 +76,17 @@
                     filter="string"
                 />
                 <field
+                    name="cleanup_grace"
+                    type="number"
+                    label="PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_FIELD_CLEANUP_GRACE_LABEL"
+                    description="PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_FIELD_CLEANUP_GRACE_DESC"
+                    default="7"
+                    min="1"
+                    max="365"
+                    step="1"
+                    filter="integer"
+                />
+                <field
                     name="storage_status"
                     type="storagestatus"
                     label="PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_FIELD_STORAGE_STATUS_LABEL"

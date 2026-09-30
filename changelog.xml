@@ -3,6 +3,10 @@
         <element>prettyprotecteddownloads</element>
         <type>plugin</type>
         <version>1.1.0</version>
+        <addition>
+            <item>Deleting an item (an article, category, contact or user) now deletes its files as well, unless another item still uses them.</item>
+            <item>A setting for how long unsaved uploads are kept before Delete unused files may remove them, 7 days by default. It was a fixed day.</item>
+        </addition>
         <fix>
             <item>Downloads now work on pages served from Joomla's view cache (System Cache: Conservative) and from the System - Page Cache plugin. A button fetches a fresh download token when it is pressed, instead of sending the one the cached page was rendered with for another visitor.</item>
         </fix>
