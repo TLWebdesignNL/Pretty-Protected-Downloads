@@ -11,6 +11,7 @@
             <item>A setting for how long unsaved uploads are kept before Delete unused files may remove them, 7 days by default. It was a fixed day.</item>
         </addition>
         <change>
+            <item>Releases now come with an install zip built from the tag and attached to the GitHub release, and the update server points at that file and its checksum, rather than at an archive GitHub generates on demand.</item>
             <item>Requires Joomla 5.3 or later. The plugin is now constructed the way Joomla 7 expects, and no longer uses APIs that Joomla 6 deprecates.</item>
         </change>
         <fix>

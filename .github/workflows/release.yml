@@ -16,6 +16,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: main
+          fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Extract version and build download URL
@@ -23,17 +24,86 @@ jobs:
         run: |
           TAG="${GITHUB_REF_NAME}"
           VERSION="${TAG#V}"
-          ZIP_URL="https://github.com/${{ github.repository }}/archive/refs/tags/${TAG}.zip"
+          ZIP_NAME="plg_fields_prettyprotecteddownloads-${VERSION}.zip"
+          ZIP_URL="https://github.com/${{ github.repository }}/releases/download/${TAG}/${ZIP_NAME}"
           echo "tag=${TAG}" >> $GITHUB_OUTPUT
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "zip_name=${ZIP_NAME}" >> $GITHUB_OUTPUT
           echo "zip_url=${ZIP_URL}" >> $GITHUB_OUTPUT
 
-      - name: Download release zip and compute SHA256
+      # The install zip is built here from the tag, with .gitattributes deciding what
+      # goes in, and attached to the release. Its SHA-256 is taken from this very
+      # file, so it can not change under the update entry the way GitHub's own
+      # on-demand tag archives may.
+      - name: Build release zip and compute SHA256
         id: sha256
         run: |
-          curl -fL -o release.zip "${{ steps.vars.outputs.zip_url }}"
-          SHA=$(sha256sum release.zip | awk '{print $1}')
+          git archive --format=zip -o "${{ steps.vars.outputs.zip_name }}" "${{ steps.vars.outputs.tag }}"
+          SHA=$(sha256sum "${{ steps.vars.outputs.zip_name }}" | awk '{print $1}')
           echo "value=${SHA}" >> $GITHUB_OUTPUT
+
+      # Published before updates.xml names the zip, so no site is ever sent to a URL
+      # that does not exist yet.
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.vars.outputs.version }}
+          TAG: ${{ steps.vars.outputs.tag }}
+          ZIP_NAME: ${{ steps.vars.outputs.zip_name }}
+        run: |
+          # A release that already exists (a re-run) only gets its zip replaced.
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$ZIP_NAME" --clobber
+            exit 0
+          fi
+
+          # Build release notes from the matching changelog.xml entry.
+          python3 - <<'EOF'
+          import os, xml.etree.ElementTree as ET
+
+          version  = os.environ["VERSION"]
+          headings = {
+              "security": "Security",
+              "addition": "New",
+              "change":   "Changed",
+              "fix":      "Fixed",
+              "note":     "Notes",
+          }
+
+          notes = ""
+          try:
+              root  = ET.parse("changelog.xml").getroot()
+              entry = next(
+                  (c for c in root.findall("changelog")
+                   if (c.findtext("version") or "").strip() == version),
+                  None,
+              )
+              if entry is not None:
+                  for tag, title in headings.items():
+                      lines = []
+                      for el in entry.findall(tag):
+                          items = el.findall("item")
+                          if items:
+                              lines += ["".join(i.itertext()).strip() for i in items]
+                          else:
+                              lines.append("".join(el.itertext()).strip())
+                      lines = [l for l in lines if l]
+                      if lines:
+                          notes += f"## {title}\n\n"
+                          notes += "\n".join(f"- {l}" for l in lines) + "\n\n"
+          except Exception as e:
+              print(f"Could not parse changelog.xml: {e}")
+
+          with open("release_notes.md", "w") as f:
+              f.write(notes.strip() + "\n")
+          EOF
+
+          if grep -q '[^[:space:]]' release_notes.md 2>/dev/null; then
+            gh release create "$TAG" "$ZIP_NAME" --title "Pretty Protected Downloads ${VERSION}" --notes-file release_notes.md
+          else
+            echo "No changelog entry for ${VERSION}; falling back to auto-generated notes."
+            gh release create "$TAG" "$ZIP_NAME" --title "Pretty Protected Downloads ${VERSION}" --generate-notes
+          fi
 
       - name: Append entry to updates.xml
         env:
@@ -97,62 +167,3 @@ jobs:
           git diff --cached --quiet && echo "No changes to commit" && exit 0
           git commit -m "chore: add updates.xml entry for ${{ steps.vars.outputs.tag }}"
           git push origin main
-
-      - name: Create GitHub release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ steps.vars.outputs.version }}
-          TAG: ${{ steps.vars.outputs.tag }}
-        run: |
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "Release $TAG already exists, skipping."
-            exit 0
-          fi
-
-          # Build release notes from the matching changelog.xml entry.
-          python3 - <<'EOF'
-          import os, xml.etree.ElementTree as ET
-
-          version  = os.environ["VERSION"]
-          headings = {
-              "security": "Security",
-              "addition": "New",
-              "change":   "Changed",
-              "fix":      "Fixed",
-              "note":     "Notes",
-          }
-
-          notes = ""
-          try:
-              root  = ET.parse("changelog.xml").getroot()
-              entry = next(
-                  (c for c in root.findall("changelog")
-                   if (c.findtext("version") or "").strip() == version),
-                  None,
-              )
-              if entry is not None:
-                  for tag, title in headings.items():
-                      lines = []
-                      for el in entry.findall(tag):
-                          items = el.findall("item")
-                          if items:
-                              lines += ["".join(i.itertext()).strip() for i in items]
-                          else:
-                              lines.append("".join(el.itertext()).strip())
-                      lines = [l for l in lines if l]
-                      if lines:
-                          notes += f"## {title}\n\n"
-                          notes += "\n".join(f"- {l}" for l in lines) + "\n\n"
-          except Exception as e:
-              print(f"Could not parse changelog.xml: {e}")
-
-          with open("release_notes.md", "w") as f:
-              f.write(notes.strip() + "\n")
-          EOF
-
-          if grep -q '[^[:space:]]' release_notes.md 2>/dev/null; then
-            gh release create "$TAG" --title "Pretty Protected Downloads ${VERSION}" --notes-file release_notes.md
-          else
-            echo "No changelog entry for ${VERSION}; falling back to auto-generated notes."
-            gh release create "$TAG" --title "Pretty Protected Downloads ${VERSION}" --generate-notes
-          fi

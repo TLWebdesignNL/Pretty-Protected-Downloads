@@ -151,7 +151,7 @@ To work on the plugin inside a Joomla installation, symlink the repository to `p
 
 ## Releases and Updates
 
-Push a tag named `V{version}` (e.g. `V1.0.0`) after updating the version in `prettyprotecteddownloads.xml`, `media/joomla.asset.json` and `changelog.xml`. The release workflow adds the version to `updates.xml` with the SHA-256 of the release archive and creates the GitHub release with notes taken from `changelog.xml`.
+Push a tag named `V{version}` (e.g. `V1.0.0`) after updating the version in `prettyprotecteddownloads.xml`, `media/joomla.asset.json` and `changelog.xml`. The release workflow builds the install zip from the tag with `git archive` (so `.gitattributes` decides what goes in), creates the GitHub release with that zip attached and notes taken from `changelog.xml`, and then adds the version to `updates.xml`, pointing at that zip with its SHA-256.
 
 The plugin includes a Joomla update server:
 

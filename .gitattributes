@@ -1,8 +1,8 @@
 # Auto detect text files and perform LF normalization
 * text=auto
 
-# The release zip is the GitHub archive of the tag, so it should hold what Joomla
-# installs and nothing else: the manifest, its script, the folders listed in <files>,
+# The release zip is built from the tag with git archive (see release.yml), so it
+# should hold what Joomla installs and nothing else: the manifest, its script, the folders listed in <files>,
 # and media. Everything below belongs to developing or publishing the plugin rather
 # than to running it.
 /tests export-ignore
