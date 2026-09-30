@@ -18,8 +18,9 @@
  * reach another.
  *
  * What is covered is everything that decides which file a request may reach: the
- * stored value, the storage folder and the download tokens. The parts that need a
- * running Joomla (the database lookups, the events, the layouts) are not.
+ * stored value, the storage folder, the download tokens, the record of unsaved
+ * uploads and who may edit a field. The parts that need a running Joomla (the
+ * database lookups, the events, the layouts) are not.
  *
  * Run them all with: php tests/run.php
  */
@@ -35,6 +36,8 @@ namespace {
     require_once __DIR__ . '/../src/Helper/Entries.php';
     require_once __DIR__ . '/../src/Helper/Storage.php';
     require_once __DIR__ . '/../src/Helper/DownloadTokens.php';
+    require_once __DIR__ . '/../src/Helper/PendingUploads.php';
+    require_once __DIR__ . '/../src/Helper/PrettyprotecteddownloadsHelper.php';
     require_once __DIR__ . '/../src/Helper/Settings.php';
 
     /**
@@ -149,6 +152,34 @@ namespace Joomla\CMS\Plugin {
         public static function getPlugin($type, $name = null)
         {
             return null;
+        }
+    }
+}
+
+namespace Joomla\CMS\User {
+    /**
+     * A user with a fixed set of access levels and granted permissions.
+     */
+    class User
+    {
+        public bool $guest = false;
+
+        /**
+         * @param   int[]     $levels  The view levels.
+         * @param   string[]  $grants  "action asset" pairs that are allowed; "core.admin" alone for a super user.
+         */
+        public function __construct(private array $levels = [1], private array $grants = [])
+        {
+        }
+
+        public function getAuthorisedViewLevels(): array
+        {
+            return $this->levels;
+        }
+
+        public function authorise($action, $asset = null): bool
+        {
+            return \in_array($asset === null ? $action : $action . ' ' . $asset, $this->grants, true);
         }
     }
 }

@@ -237,7 +237,7 @@ final class PrettyprotecteddownloadsHelper
      * @param   string  $name     The field name.
      * @param   int     $itemId   The item id.
      *
-     * @return  ?object  With id, name, access, state, group_access, group_state and entries.
+     * @return  ?object  With id, name, context, params, access, state, group_access, group_state and entries.
      */
     public function field(string $context, string $name, int $itemId): ?object
     {
@@ -246,8 +246,8 @@ final class PrettyprotecteddownloadsHelper
         $type  = self::TYPE;
         $query = $db->getQuery(true)
             ->select($db->quoteName(
-                ['f.id', 'f.name', 'f.access', 'f.state', 'g.access', 'g.state', 'fv.value'],
-                ['id', 'name', 'access', 'state', 'group_access', 'group_state', 'value']
+                ['f.id', 'f.name', 'f.context', 'f.params', 'f.access', 'f.state', 'g.access', 'g.state', 'fv.value'],
+                ['id', 'name', 'context', 'params', 'access', 'state', 'group_access', 'group_state', 'value']
             ))
             ->from($db->quoteName('#__fields', 'f'))
             ->join('LEFT', $db->quoteName('#__fields_groups', 'g'), $db->quoteName('g.id') . ' = ' . $db->quoteName('f.group_id'))
@@ -284,6 +284,49 @@ final class PrettyprotecteddownloadsHelper
         unset($field->value);
 
         return $field;
+    }
+
+    /**
+     * Whether a user may change a field's value on the client they are on: what the
+     * item form asks before it offers the field at all.
+     *
+     * The field and its group must be published, the field must be editable on this
+     * client ("Editable In"), the user must be able to see the field and its group (a
+     * super user in the administrator excepted, as the fields list does it), and must
+     * have "Edit Custom Field Value" on the field, the permission
+     * FieldsHelper::canEditFieldValue() checks.
+     *
+     * @param   object  $field  A field as field() returns it.
+     * @param   User    $user   The user.
+     * @param   bool    $site   Whether the request is on the site rather than the administrator.
+     *
+     * @return  bool
+     */
+    public static function fieldEditable(object $field, User $user, bool $site): bool
+    {
+        $params = json_decode((string) ($field->params ?? ''), true);
+        $showOn = (int) (\is_array($params) ? ($params['show_on'] ?? 0) : 0);
+
+        if (
+            (int) $field->state !== 1
+            || ($field->group_state !== null && (int) $field->group_state !== 1)
+            || ($showOn !== 0 && $showOn !== ($site ? 1 : 2))
+        ) {
+            return false;
+        }
+
+        if ($site || !$user->authorise('core.admin')) {
+            $levels = $user->getAuthorisedViewLevels();
+
+            if (
+                !\in_array((int) $field->access, $levels, true)
+                || ($field->group_access !== null && !\in_array((int) $field->group_access, $levels, true))
+            ) {
+                return false;
+            }
+        }
+
+        return (bool) $user->authorise('core.edit.value', strtok((string) $field->context, '.') . '.field.' . (int) $field->id);
     }
 
     /**

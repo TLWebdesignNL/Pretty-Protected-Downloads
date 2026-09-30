@@ -32,6 +32,7 @@ use Joomla\Database\DatabaseAwareTrait;
 use Joomla\Event\SubscriberInterface;
 use TLWeb\Plugin\Fields\Prettyprotecteddownloads\Helper\DownloadTokens;
 use TLWeb\Plugin\Fields\Prettyprotecteddownloads\Helper\Entries;
+use TLWeb\Plugin\Fields\Prettyprotecteddownloads\Helper\PendingUploads;
 use TLWeb\Plugin\Fields\Prettyprotecteddownloads\Helper\PrettyprotecteddownloadsHelper;
 use TLWeb\Plugin\Fields\Prettyprotecteddownloads\Helper\Settings;
 use TLWeb\Plugin\Fields\Prettyprotecteddownloads\Helper\Storage;
@@ -65,6 +66,11 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
      * treat it as unused.
      */
     public const CLEANUP_GRACE = 86400;
+
+    /**
+     * How many uploads one session may have waiting for their item to be saved.
+     */
+    public const MAX_PENDING_UPLOADS = 50;
 
     /**
      * The content types downloads are sent with, by extension. The type is taken from
@@ -374,8 +380,26 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
             throw new \RuntimeException(Text::_('JERROR_ALERTNOAUTHOR'), 403);
         }
 
-        if ($field === '' || !$this->helper()->field($context, $field, $itemId)) {
+        $definition = $field !== '' ? $this->helper()->field($context, $field, $itemId) : null;
+
+        if (!$definition) {
             throw new \RuntimeException(Text::_('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_ERROR_FIELD_NOT_FOUND'), 400);
+        }
+
+        if (!PrettyprotecteddownloadsHelper::fieldEditable($definition, $user, $app->isClient('site'))) {
+            throw new \RuntimeException(Text::_('JERROR_ALERTNOAUTHOR'), 403);
+        }
+
+        $pending = new PendingUploads($app->getSession(), self::CLEANUP_GRACE);
+
+        // Uploads that have since been saved with their item no longer count; the
+        // site-wide lookup that tells is only made once the limit is reached.
+        if ($pending->count() >= self::MAX_PENDING_UPLOADS) {
+            $pending->forget($this->helper()->referencedFilenames());
+
+            if ($pending->count() >= self::MAX_PENDING_UPLOADS) {
+                throw new \RuntimeException(Text::sprintf('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_ERROR_TOO_MANY_PENDING', self::MAX_PENDING_UPLOADS), 429);
+            }
         }
 
         $file = $input->files->get('file', null, 'raw');
@@ -439,7 +463,9 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
 
         @chmod($folder . $filename, 0640);
 
-        $this->discardReplaced($storage, $input->getString('replace_uuid', ''), $input->getString('replace_filename', ''));
+        $pending->record($uuid, $filename, $context, $itemId, $field);
+
+        $this->discardReplaced($storage, $pending, $input->getString('replace_uuid', ''), $input->getString('replace_filename', ''));
 
         $entry = Entries::normalise(['uuid' => $uuid, 'filename' => $filename, 'original' => $original]);
 
@@ -453,16 +479,17 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
      * one that was uploaded and replaced before any save belongs to nothing and would
      * otherwise wait for a clean-up.
      *
-     * @param   Storage  $storage   The storage.
-     * @param   string   $uuid      The replaced entry uuid.
-     * @param   string   $filename  The replaced stored filename.
+     * @param   Storage         $storage   The storage.
+     * @param   PendingUploads  $pending   This session's uploads.
+     * @param   string          $uuid      The replaced entry uuid.
+     * @param   string          $filename  The replaced stored filename.
      *
      * @return  void
      */
-    private function discardReplaced(Storage $storage, string $uuid, string $filename): void
+    private function discardReplaced(Storage $storage, PendingUploads $pending, string $uuid, string $filename): void
     {
-        if (Entries::belongsTogether($uuid, $filename) && !isset($this->helper()->referencedFilenames()[$filename])) {
-            $storage->delete($filename);
+        if (Entries::belongsTogether($uuid, $filename) && !isset($this->helper()->referencedFilenames()[$filename]) && $storage->delete($filename)) {
+            $pending->forget([$filename => true]);
         }
     }
 
@@ -490,7 +517,16 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
         }
 
         $field = $this->helper()->field($context, $input->getString('field', ''), $itemId);
-        $entry = $field ? $this->find($field->entries, $uuid) : null;
+
+        if (!$field) {
+            $this->fail(404);
+        }
+
+        if (!PrettyprotecteddownloadsHelper::fieldEditable($field, $user, $app->isClient('site'))) {
+            $this->fail(403);
+        }
+
+        $entry = $this->find($field->entries, $uuid);
 
         if (!$entry && Entries::belongsTogether($uuid, $filename) && !isset($this->helper()->referencedFilenames()[$filename])) {
             $entry = ['uuid' => $uuid, 'filename' => $filename];

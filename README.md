@@ -119,7 +119,7 @@ Anything else sends the visitor back to the page with a message. The file is sen
 
 The plugin never reads, lists or deletes anything in the storage folder that it did not write itself. Its files all end in the uuid they were given on upload, so even a folder shared with other files comes to no harm from the clean-up.
 
-Editors upload through the same endpoint (`task=upload`), which requires the form token and edit permission on the item: `core.edit`, or `core.edit.own` on their own items. A user profile is edited by its owner, or by anyone who may edit users.
+Editors upload through the same endpoint (`task=upload`), which requires the form token, edit permission on the item (`core.edit`, or `core.edit.own` on their own items; a user profile is edited by its owner, or by anyone who may edit users) and everything the item form itself asks before it offers the field: the field and its field group are published, the field is editable on this side of the site (*Editable In*), the editor's access levels include the field's and its group's (a Super User in the administrator excepted), and the editor has *Edit Custom Field Value* on the field. One session can have at most 50 uploads waiting for their item to be saved. Previews of a file in the form (`task=preview`) are checked the same way.
 
 ## Clean-up
 
@@ -128,7 +128,7 @@ Uploads become part of an article when the article is saved. A file that was upl
 ## Limitations
 
 - **Supported contexts.** Articles, categories (of any component), contacts and user profiles. A field of this type in another component's context shows a notice instead of the upload control, and nothing is ever served for it, because the plugin has no rule for who may see such an item.
-- **User profiles.** A profile's files are visible to that user alone, on their own profile page. If you put the field on the frontend profile edit form, every registered user can upload files to their own profile.
+- **User profiles.** A profile's files are visible to that user alone, on their own profile page. A user can upload files to their own profile wherever the field is editable for them: set *Editable In* to *Administrator*, or deny *Edit Custom Field Value* on the field to the Registered group, if users should not upload to their own profile.
 - **Page caching.** The download tokens are issued when a page is rendered. With the *System - Page Cache* plugin on, a cached page hands out tokens of another session, and its downloads fail. Exclude the pages with downloads from the page cache, or keep the cache off.
 - **Article versions.** Restoring an older version of an article from its history brings back its file entries, but not files that were deleted in the meantime.
 - **Uninstalling** leaves the stored files in their folder. They are your site's documents, not the plugin's.
