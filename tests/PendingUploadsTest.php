@@ -46,6 +46,8 @@ check('not an item that was never saved', !$uploads->has('uuid-b', 'b-uuid-b.pdf
 check('not once it expired', !$uploads->has('uuid-b', 'b-uuid-b.pdf', 'com_content.article', 7, $now + 86401));
 check('not from another session', !(new PendingUploads(new TestSession()))->has('uuid-b', 'b-uuid-b.pdf', 'com_content.article', 7, $now));
 
+check('their stored names are listed', $uploads->filenames($now) === ['a-uuid-a.pdf', 'b-uuid-b.pdf']);
+
 group('Forgetting');
 $uploads->forget(['a-uuid-a.pdf' => true, 'unrelated.pdf' => true], $now);
 check('a saved or deleted upload no longer counts', $uploads->count($now) === 1);

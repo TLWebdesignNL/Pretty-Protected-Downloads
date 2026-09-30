@@ -443,12 +443,16 @@ final class PrettyprotecteddownloadsHelper
      * files with the original, so a file removed from one may still be listed on the
      * other and must then stay.
      *
-     * @param   string  $exceptContext  The context of an item whose values do not count, as it is being deleted.
-     * @param   int     $exceptItem     That item's id; 0 when every value counts.
+     * Asked about a few files, only the values that mention them are read; the full
+     * scan is for the clean-up, which has to know about every file.
+     *
+     * @param   string    $exceptContext  The context of an item whose values do not count, as it is being deleted.
+     * @param   int       $exceptItem     That item's id; 0 when every value counts.
+     * @param   ?string[] $only           The filenames to ask about; null for all.
      *
      * @return  array<string, true>
      */
-    public function referencedFilenames(string $exceptContext = '', int $exceptItem = 0): array
+    public function referencedFilenames(string $exceptContext = '', int $exceptItem = 0, ?array $only = null): array
     {
         $db    = $this->db;
         $query = $db->createQuery()
@@ -464,6 +468,26 @@ final class PrettyprotecteddownloadsHelper
                 ->bind(':exceptitem', $item);
         }
 
+        if ($only !== null) {
+            $only = array_values(array_unique(array_filter($only, static fn ($name): bool => \is_string($name) && preg_match(Entries::OWN_FILE, $name) === 1)));
+
+            if ($only === []) {
+                return [];
+            }
+
+            // A stored name has no "%" in it, and an "_" that matches any character only
+            // lets through a value that is then read and dropped below.
+            $patterns = array_map(static fn (string $name): string => '%' . $name . '%', $only);
+            $likes    = [];
+
+            foreach (array_keys($patterns) as $i) {
+                $likes[] = $db->quoteName('fv.value') . ' LIKE :only' . $i;
+                $query->bind(':only' . $i, $patterns[$i]);
+            }
+
+            $query->where('(' . implode(' OR ', $likes) . ')');
+        }
+
         $names = [];
 
         foreach ($db->setQuery($query)->loadColumn() ?: [] as $value) {
@@ -472,7 +496,7 @@ final class PrettyprotecteddownloadsHelper
             }
         }
 
-        return $names;
+        return $only === null ? $names : array_intersect_key($names, array_flip($only));
     }
 
     /**

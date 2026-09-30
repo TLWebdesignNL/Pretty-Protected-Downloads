@@ -63,7 +63,7 @@ When the hosting account gives PHP no writable folder outside the website, choos
 
 The **Storage** tab of the plugin settings shows the folder as last saved: whether it exists or can be created, whether it is writable, whether it lies inside the web root, and the largest upload that is in effect: the lower of the plugin setting and the server's PHP limits (`upload_max_filesize`, `post_max_size`).
 
-For a folder inside the web root it also reports **Direct access**: the plugin asks the web server for the folder's own `index.html` and shows whether the server refused it. This is the real test, because an `.htaccess` file on disk means nothing to a server that does not read it. If it says *NOT blocked*, fix the server configuration before storing anything confidential.
+For a folder inside the web root it also reports **Direct access**: the plugin asks the web server for the folder's own `index.html` and shows whether the server refused it. This is the real test, because an `.htaccess` file on disk means nothing to a server that does not read it. If it says *NOT blocked*, fix the server configuration before storing anything confidential. The answer is kept for ten minutes; **Check again** asks the server at once.
 
 ## Configuration
 
@@ -107,7 +107,7 @@ Each download in a layout is a small `<form method="post">`: keep the `$download
 A download is a `POST` to `index.php?option=com_ajax&group=fields&plugin=prettyprotecteddownloads&task=download` and is only served when all of these hold:
 
 1. The Joomla form token of the visitor's session is valid.
-2. The download token was issued to this session, for exactly this file, article and field, and has not expired. The button asks for it (`task=token`, also a `POST` with the form token) the moment it is pressed, and it is only issued when checks 3 to 5 below hold.
+2. The download token was issued to this session, for exactly this field of this item, and has not expired. The button asks for it (`task=token`, also a `POST` with the form token) the moment it is pressed, and it is only issued when checks 3 to 5 below hold.
 3. The visitor could see the item the field is on:
    - an **article** or **contact** when it is published or archived, within its publish up and publish down dates, in a published category, and the visitor has both its access level and the category's. A visitor who may edit the item, or change its state, can download from it whatever its state and dates, as they can preview it;
    - a **category** when Joomla's own category tree holds it for this visitor, which means it and every category above it are published and accessible;

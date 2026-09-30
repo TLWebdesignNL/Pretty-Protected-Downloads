@@ -34,6 +34,7 @@ use Joomla\Component\Fields\Administrator\Plugin\FieldsPlugin;
 use Joomla\Database\DatabaseAwareInterface;
 use Joomla\Database\DatabaseAwareTrait;
 use Joomla\Event\SubscriberInterface;
+use TLWeb\Plugin\Fields\Prettyprotecteddownloads\Helper\DirectAccess;
 use TLWeb\Plugin\Fields\Prettyprotecteddownloads\Helper\DownloadTokens;
 use TLWeb\Plugin\Fields\Prettyprotecteddownloads\Helper\Entries;
 use TLWeb\Plugin\Fields\Prettyprotecteddownloads\Helper\PendingUploads;
@@ -59,6 +60,8 @@ use TLWeb\Plugin\Fields\Prettyprotecteddownloads\Helper\Storage;
  *   task=download  POST, visitors: the file, after the item, field and field group
  *                  access checks and a download token check
  *   task=cleanup   POST, administrators: deletes stored files no field names any more
+ *   task=probe     POST, administrators: asks the web server again whether the
+ *                  storage folder is open to the web
  *
  * Every request names the fields context the item belongs to, since who may see an
  * item is decided per context; PrettyprotecteddownloadsHelper::CONTEXTS lists the supported ones.
@@ -354,7 +357,9 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
             return;
         }
 
-        $referenced = $deleted ? $this->helper()->referencedFilenames($context, $itemId) : $this->helper()->referencedFilenames();
+        $referenced = $deleted
+            ? $this->helper()->referencedFilenames($context, $itemId, $this->pendingDeletes[$key])
+            : $this->helper()->referencedFilenames(only: $this->pendingDeletes[$key]);
         $storage    = Storage::fromParams($this->params);
 
         foreach ($this->pendingDeletes[$key] as $filename) {
@@ -409,6 +414,7 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
             'upload'  => $event->addResult($this->upload()),
             'token'   => $event->addResult($this->token()),
             'cleanup' => $event->addResult($this->cleanup()),
+            'probe'   => $event->addResult($this->probe()),
             'preview' => $this->preview(),
             default   => $this->download(),
         };
@@ -457,9 +463,9 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
         $pending = new PendingUploads($app->getSession(), Settings::cleanupGrace($this->params));
 
         // Uploads that have since been saved with their item no longer count; the
-        // site-wide lookup that tells is only made once the limit is reached.
+        // lookup that tells is only made once the limit is reached.
         if ($pending->count() >= self::MAX_PENDING_UPLOADS) {
-            $pending->forget($this->helper()->referencedFilenames());
+            $pending->forget($this->helper()->referencedFilenames(only: $pending->filenames()));
 
             if ($pending->count() >= self::MAX_PENDING_UPLOADS) {
                 throw new \RuntimeException(Text::sprintf('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_ERROR_TOO_MANY_PENDING', self::MAX_PENDING_UPLOADS), 429);
@@ -576,7 +582,7 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
         if (
             Entries::belongsTogether($uuid, $filename)
             && $pending->has($uuid, $filename, $context, $itemId)
-            && !isset($this->helper()->referencedFilenames()[$filename])
+            && !isset($this->helper()->referencedFilenames(only: [$filename])[$filename])
             && $storage->delete($filename)
         ) {
             $pending->forget([$filename => true]);
@@ -666,7 +672,7 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
 
         $tokens = new DownloadTokens($app->getSession(), Settings::tokenLifetime($this->params));
 
-        return ['token' => $tokens->issue($uuid, $context, $itemId, $name)];
+        return ['token' => $tokens->issue($context, $itemId, $name)];
     }
 
     /**
@@ -691,7 +697,7 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
 
         $tokens = new DownloadTokens($app->getSession(), Settings::tokenLifetime($this->params));
 
-        if ($uuid === '' || $itemId <= 0 || $name === '' || !$tokens->isValid($token, $uuid, $context, $itemId, $name)) {
+        if ($uuid === '' || $itemId <= 0 || $name === '' || !$tokens->isValid($token, $context, $itemId, $name)) {
             $this->refuse('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_ERROR_EXPIRED');
         }
 
@@ -737,6 +743,31 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
             'bytes'   => $bytes,
             'message' => Text::plural('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_CLEANUP_DONE_N', $deleted, HTMLHelper::_('number.bytes', $bytes)),
         ];
+    }
+
+    /**
+     * Ask the web server again whether it serves the storage folder's files directly.
+     *
+     * @return  array{html: string}
+     *
+     * @throws  \RuntimeException
+     */
+    private function probe(): array
+    {
+        $app  = $this->getApplication();
+        $user = $app->getIdentity();
+
+        if (!Session::checkToken()) {
+            throw new \RuntimeException(Text::_('JINVALID_TOKEN'), 403);
+        }
+
+        if (!$app->isClient('administrator') || !$user || !$user->authorise('core.edit', 'com_plugins')) {
+            throw new \RuntimeException(Text::_('JERROR_ALERTNOAUTHOR'), 403);
+        }
+
+        $url = DirectAccess::url(Storage::fromParams($this->params), Uri::root());
+
+        return ['html' => DirectAccess::badge($url === null ? null : (new DirectAccess($app->getSession()))->status($url, true))];
     }
 
     /**

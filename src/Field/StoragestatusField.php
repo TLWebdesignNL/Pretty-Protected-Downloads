@@ -17,7 +17,7 @@ use Joomla\CMS\Language\Text;
 use Joomla\CMS\Session\Session;
 use Joomla\CMS\Uri\Uri;
 use Joomla\Database\DatabaseInterface;
-use Joomla\Http\HttpFactory;
+use TLWeb\Plugin\Fields\Prettyprotecteddownloads\Helper\DirectAccess;
 use TLWeb\Plugin\Fields\Prettyprotecteddownloads\Helper\PrettyprotecteddownloadsHelper;
 use TLWeb\Plugin\Fields\Prettyprotecteddownloads\Helper\Settings;
 use TLWeb\Plugin\Fields\Prettyprotecteddownloads\Helper\Storage;
@@ -102,9 +102,8 @@ class StoragestatusField extends FormField
     }
 
     /**
-     * Whether the web server hands out the folder's files directly, found out by asking
-     * it for the empty index.html the folder was prepared with. An .htaccess on disk
-     * says nothing about a server that does not read it.
+     * Whether the web server hands out the folder's files directly, as last found out
+     * (see DirectAccess), with a button that asks again.
      *
      * @param   Storage  $storage  The storage.
      *
@@ -112,17 +111,31 @@ class StoragestatusField extends FormField
      */
     private function directAccess(Storage $storage): string
     {
-        $url = Uri::root() . str_replace('%2F', '/', rawurlencode((string) $storage->relativeToWebroot())) . '/index.html';
+        $app   = Factory::getApplication();
+        $url   = (string) DirectAccess::url($storage, Uri::root());
+        $probe = Uri::base() . 'index.php?option=com_ajax&group=fields&plugin=prettyprotecteddownloads&format=json&task=probe';
 
-        try {
-            $code = (new HttpFactory())->getHttp()->get($url, [], 5)->code;
-        } catch (\Throwable $e) {
-            return '<span class="badge bg-secondary">' . Text::_('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_STATUS_DIRECT_UNKNOWN') . '</span>';
-        }
+        $this->loadAdminScript();
 
-        return $code === 200
-            ? '<span class="badge bg-danger">' . Text::_('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_STATUS_DIRECT_OPEN') . '</span>'
-            : '<span class="badge bg-success">' . Text::sprintf('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_STATUS_DIRECT_BLOCKED', $code) . '</span>';
+        return '<span class="ppd-probe-result">' . DirectAccess::badge((new DirectAccess($app->getSession()))->status($url)) . '</span> '
+            . '<button type="button" class="btn btn-link btn-sm p-0 ms-2 align-baseline ppd-probe-button"'
+            . ' data-url="' . htmlspecialchars($probe, ENT_QUOTES, 'UTF-8') . '"'
+            . ' data-token="' . htmlspecialchars(Session::getFormToken(), ENT_QUOTES, 'UTF-8') . '">'
+            . Text::_('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_STATUS_CHECK_AGAIN') . '</button>';
+    }
+
+    /**
+     * The script behind the buttons on this screen, and the texts it shows.
+     *
+     * @return  void
+     */
+    private function loadAdminScript(): void
+    {
+        $wa = Factory::getApplication()->getDocument()->getWebAssetManager();
+        $wa->getRegistry()->addExtensionRegistryFile('plg_fields_prettyprotecteddownloads');
+        $wa->useScript('plg_fields_prettyprotecteddownloads.admin');
+        Text::script('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_JS_CLEANUP_FAILED');
+        Text::script('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_JS_PROBE_FAILED');
     }
 
     /**
@@ -142,10 +155,7 @@ class StoragestatusField extends FormField
             return '<p class="text-muted small mb-0">' . Text::_('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_CLEANUP_NONE') . '</p>';
         }
 
-        $wa = Factory::getApplication()->getDocument()->getWebAssetManager();
-        $wa->getRegistry()->addExtensionRegistryFile('plg_fields_prettyprotecteddownloads');
-        $wa->useScript('plg_fields_prettyprotecteddownloads.admin');
-        Text::script('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_JS_CLEANUP_FAILED');
+        $this->loadAdminScript();
 
         $url   = Uri::base() . 'index.php?option=com_ajax&group=fields&plugin=prettyprotecteddownloads&format=json&task=cleanup';
         $bytes = array_sum(array_column($unused, 'size'));

@@ -86,6 +86,18 @@ final class PendingUploads
     }
 
     /**
+     * The stored filenames of the uploads this session remembers.
+     *
+     * @param   ?int  $now  The time, for tests.
+     *
+     * @return  string[]
+     */
+    public function filenames(?int $now = null): array
+    {
+        return array_values(array_map(static fn (array $data): string => (string) ($data['filename'] ?? ''), $this->live($now ?? time())));
+    }
+
+    /**
      * Whether this session uploaded this file for this item.
      *
      * @param   string  $uuid      The entry uuid.

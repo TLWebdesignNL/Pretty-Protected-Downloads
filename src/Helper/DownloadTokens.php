@@ -15,17 +15,20 @@ namespace TLWeb\Plugin\Fields\Prettyprotecteddownloads\Helper;
 // phpcs:enable PSR1.Files.SideEffects
 
 /**
- * Short-lived tokens that tie a download button to the visitor it was shown to.
+ * Short-lived tokens that tie the download buttons of a field to the visitor they
+ * were shown to.
  *
- * A token is issued for every file a page renders and kept in the visitor's session,
- * bound to the file, the item, its context and the field. A download is only served
- * for a token this session was given, so a file can not be fetched by guessing or
- * sharing its identifiers, only from a page the visitor was allowed to see. The
- * access check on the download itself runs as well; the token is the second lock,
- * not the only one.
+ * A token is kept in the visitor's session, bound to one field of one item in one
+ * context. A download is only served for a token this session was given, so a file
+ * can not be fetched by guessing or sharing its identifiers, only by a visitor who
+ * passed the access checks for that field. The access check on the download itself
+ * runs as well, and it is what makes sure the file is one the field lists; the token
+ * is the second lock, not the only one.
  *
  * A token stays valid until it expires rather than being spent on first use, so a
- * second click, or a download the browser retries, still works.
+ * second click, or a download the browser retries, still works. A field shown again
+ * while its token has at least half its lifetime left gets the same token back, so
+ * page views do not fill the session.
  */
 final class DownloadTokens
 {
@@ -34,7 +37,7 @@ final class DownloadTokens
     /**
      * The most tokens one session keeps; the oldest are dropped beyond it.
      */
-    private const MAX_TOKENS = 500;
+    private const MAX_TOKENS = 200;
 
     /**
      * @param   object  $session   The session, anything with get($name, $default) and set($name, $value).
@@ -47,9 +50,8 @@ final class DownloadTokens
     }
 
     /**
-     * Issue a token for one file.
+     * A token for the downloads of one field of one item.
      *
-     * @param   string  $uuid     The entry uuid.
      * @param   string  $context  The fields context of the item.
      * @param   int     $itemId   The item the field belongs to.
      * @param   string  $field    The field name.
@@ -57,14 +59,20 @@ final class DownloadTokens
      *
      * @return  string
      */
-    public function issue(string $uuid, string $context, int $itemId, string $field, ?int $now = null): string
+    public function issue(string $context, int $itemId, string $field, ?int $now = null): string
     {
         $now    = $now ?? time();
         $tokens = $this->live($now);
-        $token  = bin2hex(random_bytes(16));
+
+        foreach ($tokens as $token => $data) {
+            if ($this->matches($data, $context, $itemId, $field) && (int) $data['expires'] - $now >= intdiv($this->lifetime, 2)) {
+                return (string) $token;
+            }
+        }
+
+        $token = bin2hex(random_bytes(16));
 
         $tokens[$token] = [
-            'uuid'    => $uuid,
             'context' => $context,
             'item'    => $itemId,
             'field'   => $field,
@@ -81,10 +89,9 @@ final class DownloadTokens
     }
 
     /**
-     * Whether a token was issued to this session for exactly this file, and is still valid.
+     * Whether a token was issued to this session for exactly this field, and is still valid.
      *
      * @param   string  $token    The token.
-     * @param   string  $uuid     The entry uuid.
      * @param   string  $context  The fields context of the item.
      * @param   int     $itemId   The item.
      * @param   string  $field    The field name.
@@ -92,13 +99,24 @@ final class DownloadTokens
      *
      * @return  bool
      */
-    public function isValid(string $token, string $uuid, string $context, int $itemId, string $field, ?int $now = null): bool
+    public function isValid(string $token, string $context, int $itemId, string $field, ?int $now = null): bool
     {
-        $data = $this->live($now ?? time())[$token] ?? null;
+        $data = $token !== '' ? ($this->live($now ?? time())[$token] ?? null) : null;
 
-        return \is_array($data)
-            && hash_equals((string) ($data['uuid'] ?? ''), $uuid)
-            && (string) ($data['context'] ?? '') === $context
+        return \is_array($data) && $this->matches($data, $context, $itemId, $field);
+    }
+
+    /**
+     * @param   array   $data     A stored token.
+     * @param   string  $context  The fields context.
+     * @param   int     $itemId   The item.
+     * @param   string  $field    The field name.
+     *
+     * @return  bool
+     */
+    private function matches(array $data, string $context, int $itemId, string $field): bool
+    {
+        return (string) ($data['context'] ?? '') === $context
             && (int) ($data['item'] ?? 0) === $itemId
             && (string) ($data['field'] ?? '') === $field;
     }

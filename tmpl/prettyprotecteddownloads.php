@@ -65,6 +65,7 @@ $buttonClass = trim((string) $fieldParams->get('button_class', ''));
 $cardClass   = trim((string) $fieldParams->get('card_class', ''));
 $downloads   = [];
 
+$token        = null;
 $headingLevel = (string) $fieldParams->get('heading_level', 'h3');
 $headingLevel = \in_array($headingLevel, ['h2', 'h3', 'h4', 'h5', 'h6', 'p'], true) ? $headingLevel : 'h3';
 
@@ -75,8 +76,6 @@ foreach ($entries as $entry) {
 
     $name  = Entries::downloadName($entry);
     $file  = $showMeta ? $storage->locate($entry['filename']) : null;
-    $token = $tokens->issue($entry['uuid'], (string) $context, $itemId, $field->name);
-
     $hidden = [
         'uuid'     => $entry['uuid'],
         'context'  => (string) $context,
@@ -85,7 +84,9 @@ foreach ($entries as $entry) {
         $formToken => 1,
     ];
 
-    $title = trim((string) ($entry['title'] ?? ''));
+    // One token for all the buttons of this field, for visitors without scripts.
+    $token ??= $tokens->issue((string) $context, $itemId, $field->name);
+    $title   = trim((string) ($entry['title'] ?? ''));
     $size  = $file !== null ? (int) filesize($file) : null;
 
     $downloads[] = (object) [

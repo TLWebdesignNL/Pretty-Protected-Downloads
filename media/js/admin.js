@@ -168,6 +168,41 @@
     }
   }, true);
 
+  // Ask the web server again whether the storage folder is open to the web.
+  document.addEventListener('click', (event) => {
+    const button = event.target.closest('.ppd-probe-button');
+
+    if (!button) {
+      return;
+    }
+
+    event.preventDefault();
+
+    const result = button.parentElement.querySelector('.ppd-probe-result');
+    const body = new FormData();
+    body.append(button.dataset.token, '1');
+    button.disabled = true;
+
+    fetch(button.dataset.url, { method: 'POST', body, credentials: 'same-origin' })
+      .then((response) => response.json())
+      .then((response) => {
+        const data = response && response.success && Array.isArray(response.data) ? response.data[0] : null;
+
+        if (!data || typeof data.html !== 'string') {
+          throw new Error((response && response.message) || '');
+        }
+
+        // The badge is built on the server from a language string and a status code.
+        result.innerHTML = data.html;
+      })
+      .catch((error) => {
+        Joomla.renderMessages({ error: [text('PROBE_FAILED', error.message)] });
+      })
+      .finally(() => {
+        button.disabled = false;
+      });
+  });
+
   document.addEventListener('click', (event) => {
     const button = event.target.closest('.ppd-cleanup-button');
 

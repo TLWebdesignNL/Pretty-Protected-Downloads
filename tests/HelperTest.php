@@ -142,6 +142,8 @@ $db->insert('fields_values', ['field_id' => 105, 'item_id' => '1', 'value' => js
 $db->insert('fields_values', ['field_id' => 107, 'item_id' => '1', 'value' => $value($d)]);
 $db->insert('fields_values', ['field_id' => 109, 'item_id' => '5', 'value' => $value($u)]);
 $db->insert('fields_values', ['field_id' => 110, 'item_id' => '10', 'value' => $value($k)]);
+$nested = entry('nested');
+$db->insert('fields_values', ['field_id' => 105, 'item_id' => '3', 'value' => json_encode(['row0' => ['field106' => json_encode([$nested])]])]);
 $both = entry('both');
 $row  = entry('row');
 $db->insert('fields_values', ['field_id' => 106, 'item_id' => '13', 'value' => $value($both)]);
@@ -240,6 +242,13 @@ $without = $helper->referencedFilenames('com_content.article', 1);
 check('leaving a deleted item out drops its files', !isset($without[$a['filename']]) && !isset($without[$c['filename']]));
 check('but not the files of other items', isset($without[$b['filename']]));
 check('nor of the same id in another context', isset($without[$d['filename']]));
+
+group('Asking about a few files');
+$some = $helper->referencedFilenames('', 0, [$a['filename'], $nested['filename'], 'gone-' . Entries::uuid() . '.pdf']);
+check('only the files asked about come back', array_keys($some) === [$a['filename'], $nested['filename']] || array_keys($some) === [$nested['filename'], $a['filename']]);
+check('found inside a subform child saved as a JSON string too', isset($some[$nested['filename']]));
+check('leaving a deleted item out works the same', $helper->referencedFilenames('com_content.article', 1, [$a['filename'], $b['filename']]) === [$b['filename'] => true]);
+check('a name that is not a stored name is never asked about', $helper->referencedFilenames('', 0, ['%']) === []);
 
 // ── The download check ────────────────────────────────────────────────────
 
