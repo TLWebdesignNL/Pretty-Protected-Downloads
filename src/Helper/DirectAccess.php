@@ -49,7 +49,7 @@ final class DirectAccess
         private readonly object $session,
         ?callable $fetch = null
     ) {
-        $this->fetch = $fetch ?? static fn (string $url): int => (new HttpFactory())->getHttp()->get($url, [], 5)->code;
+        $this->fetch = $fetch ?? static fn (string $url): int => (new HttpFactory())->getHttp()->get($url, [], 5)->getStatusCode();
     }
 
     /**

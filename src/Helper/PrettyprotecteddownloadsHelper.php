@@ -446,13 +446,11 @@ final class PrettyprotecteddownloadsHelper
      * Asked about a few files, only the values that mention them are read; the full
      * scan is for the clean-up, which has to know about every file.
      *
-     * @param   string    $exceptContext  The context of an item whose values do not count, as it is being deleted.
-     * @param   int       $exceptItem     That item's id; 0 when every value counts.
-     * @param   ?string[] $only           The filenames to ask about; null for all.
+     * @param   ?string[] $only  The filenames to ask about; null for all.
      *
      * @return  array<string, true>
      */
-    public function referencedFilenames(string $exceptContext = '', int $exceptItem = 0, ?array $only = null): array
+    public function referencedFilenames(?array $only = null): array
     {
         $db    = $this->db;
         $query = $db->createQuery()
@@ -460,13 +458,6 @@ final class PrettyprotecteddownloadsHelper
             ->from($db->quoteName('#__fields_values', 'fv'))
             ->join('INNER', $db->quoteName('#__fields', 'f'), $db->quoteName('f.id') . ' = ' . $db->quoteName('fv.field_id'))
             ->whereIn($db->quoteName('f.type'), [self::TYPE, 'subform'], ParameterType::STRING);
-
-        if ($exceptItem > 0) {
-            $item = (string) $exceptItem;
-            $query->where('(' . $db->quoteName('f.context') . ' <> :exceptcontext OR ' . $db->quoteName('fv.item_id') . ' <> :exceptitem)')
-                ->bind(':exceptcontext', $exceptContext)
-                ->bind(':exceptitem', $item);
-        }
 
         if ($only !== null) {
             $only = array_values(array_unique(array_filter($only, static fn ($name): bool => \is_string($name) && preg_match(Entries::OWN_FILE, $name) === 1)));

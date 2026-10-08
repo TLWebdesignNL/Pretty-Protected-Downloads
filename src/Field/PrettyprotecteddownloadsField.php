@@ -20,6 +20,7 @@ use TLWeb\Plugin\Fields\Prettyprotecteddownloads\Helper\Entries;
 use TLWeb\Plugin\Fields\Prettyprotecteddownloads\Helper\PendingUploads;
 use TLWeb\Plugin\Fields\Prettyprotecteddownloads\Helper\PrettyprotecteddownloadsHelper;
 use TLWeb\Plugin\Fields\Prettyprotecteddownloads\Helper\Settings;
+use TLWeb\Plugin\Fields\Prettyprotecteddownloads\Helper\Storage;
 
 // phpcs:disable PSR1.Files.SideEffects
 \defined('_JEXEC') or die;
@@ -127,9 +128,29 @@ XML;
     }
 
     /**
+     * Validate the rows rather than the JSON string filter() made of them: Joomla
+     * checks every subform field row by row, and loops over the value to do so.
+     *
+     * @param   mixed      $value  The filtered value.
+     * @param   ?string    $group  The group.
+     * @param   ?Registry  $input  The whole posted form.
+     *
+     * @return  bool|\Exception
+     */
+    public function validate($value, $group = null, ?Registry $input = null)
+    {
+        // An empty value of a required field stays as it is, for the required check.
+        if (\is_string($value) && ($value !== '' || !$this->required)) {
+            $value = Entries::decode($value);
+        }
+
+        return parent::validate($value, $group, $input);
+    }
+
+    /**
      * The entries that may be saved with the item: the files it already lists, and
-     * the ones uploaded for it in this session. Any other entry is dropped, with a
-     * warning.
+     * the ones uploaded for it in this session, as long as the file is still there.
+     * Any other entry is dropped, with a warning.
      *
      * This runs while the item's form is validated, which is the last moment the
      * posted value can still be changed: the save events only get a copy of it.
@@ -161,16 +182,45 @@ XML;
             static fn (array $entry): bool => $known !== null && $pending->has($entry['uuid'], $entry['filename'], $context, $itemId)
         );
 
-        if (\count($kept) < \count($entries)) {
-            $names = array_map(
-                static fn (array $entry): string => htmlspecialchars(Entries::downloadName($entry), ENT_QUOTES, 'UTF-8'),
-                array_udiff($entries, $kept, static fn (array $a, array $b): int => strcmp($a['uuid'], $b['uuid']))
-            );
+        self::warnLeftOut($entries, $kept, 'PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_WARNING_ENTRIES_DROPPED');
 
-            $app->enqueueMessage(Text::sprintf('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_WARNING_ENTRIES_DROPPED', implode(', ', $names)), 'warning');
+        // An entry whose file is gone would only offer a download that fails. Joomla 6
+        // saves one again when an older version of the item is restored, without asking
+        // this field. A folder that is not there says nothing about its files.
+        $storage = Storage::fromParams(Settings::params());
+
+        if (!is_dir($storage->path())) {
+            return $kept;
         }
 
-        return $kept;
+        $present = array_values(array_filter($kept, static fn (array $entry): bool => $storage->locate($entry['filename']) !== null));
+
+        self::warnLeftOut($kept, $present, 'PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_WARNING_ENTRIES_MISSING');
+
+        return $present;
+    }
+
+    /**
+     * Tell the editor which entries a save left out.
+     *
+     * @param   array[]  $entries  The entries before.
+     * @param   array[]  $kept     The entries that stay.
+     * @param   string   $key      The language key of the message, with a %s for the file names.
+     *
+     * @return  void
+     */
+    private static function warnLeftOut(array $entries, array $kept, string $key): void
+    {
+        if (\count($kept) === \count($entries)) {
+            return;
+        }
+
+        $names = array_map(
+            static fn (array $entry): string => htmlspecialchars(Entries::downloadName($entry), ENT_QUOTES, 'UTF-8'),
+            array_udiff($entries, $kept, static fn (array $a, array $b): int => strcmp($a['uuid'], $b['uuid']))
+        );
+
+        Factory::getApplication()->enqueueMessage(Text::sprintf($key, implode(', ', $names)), 'warning');
     }
 
     /**

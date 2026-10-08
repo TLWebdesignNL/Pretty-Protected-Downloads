@@ -11,8 +11,7 @@
             <item>A file that was uploaded but not saved yet can only be previewed, or replaced and deleted, from the session that uploaded it for that item. Before, any editor could preview or delete any file that no item listed.</item>
         </security>
         <addition>
-            <item>Deleting an item (an article, category, contact or user) now deletes its files as well, unless another item still uses them.</item>
-            <item>Unused files are now cleaned up automatically: once a day, the first upload also deletes the files that no field names and that are older than the grace period.</item>
+            <item>Unused files are now cleaned up automatically: once a day, the first upload also deletes the files that no field names and that are older than the grace period. That includes the files of deleted items (articles, categories, contacts and users).</item>
             <item>A Card Title Level option for the Cards layout: heading 2 to 6, or no heading, so the titles fit the page outline.</item>
             <item>The display layouts get label and meta values (the title or file name, and the file type and size as text), and the Cards layout gets headingLevel. Template overrides that do not use them keep working.</item>
             <item>A setting for how long unsaved uploads are kept before Delete unused files may remove them, 7 days by default. It was a fixed day.</item>
@@ -34,6 +33,10 @@
             <item>A storage path with "." or ".." in it is resolved before it is checked, so it can no longer step past the check that refuses the site root and Joomla's own folders.</item>
             <item>The download button lifetime is capped at a day on the server too, not only in the settings form.</item>
             <item>Downloads now work on pages served from Joomla's view cache (System Cache: Conservative) and from the System - Page Cache plugin. A button fetches a fresh download token when it is pressed, instead of sending the one the cached page was rendered with for another visitor.</item>
+            <item>Saving an item with files no longer raises a PHP warning (foreach() argument must be of type array|object) in Joomla's subform validation.</item>
+            <item>On Joomla 6 the Direct access check in the plugin settings reports the real answer of the web server again, rather than "Could not be checked" with a PHP warning.</item>
+            <item>The messages for a refused file type and for content that does not match its type show quotes around the type, rather than the text &amp;quot;.</item>
+            <item>A save leaves out entries whose file no longer exists, with a warning that names them. Before, restoring an older version of an item could bring back a download button for a deleted file.</item>
         </fix>
     </changelog>
     <changelog>
