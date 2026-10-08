@@ -73,6 +73,7 @@
     const filename = rowInput(control, 'filename');
     const original = rowInput(control, 'original');
     const button = rowInput(control, 'button');
+    const title = rowInput(control, 'title');
     const problem = check(control, file);
 
     if (!uuid || !filename) {
@@ -135,9 +136,15 @@
         original.value = entry.original || file.name;
       }
 
-      if (button && !button.value.trim()) {
-        button.value = (entry.original || file.name).replace(/\.[^.]+$/, '');
-      }
+      // The texts start out as the file name without its extension, with spaces for its
+      // dashes, underscores and dots, unless the editor wrote them.
+      const readable = (entry.original || file.name).replace(/\.[^.]+$/, '').replace(/[\s._-]+/g, ' ').trim();
+
+      [button, title].forEach((input) => {
+        if (input && !input.value.trim()) {
+          input.value = readable;
+        }
+      });
 
       showFile(control, entry.uuid, entry.filename, entry.original || file.name);
       setStatus(control, text('UPLOADED', entry.original || file.name), 'success');

@@ -21,7 +21,7 @@
  * Available to the display layout:
  *   $downloads    list of objects with: title, description (plain text), button, icon,
  *                 class, name (the name the file downloads as), label (the title, or
- *                 the name when there is none), extension, size (bytes, or null when
+ *                 without one the button text, or without that the name as a text to read), extension, size (bytes, or null when
  *                 not shown), meta (type and size as text, or '' when not shown),
  *                 hidden (the form's hidden inputs, as HTML; keep them in the form,
  *                 download.js finds its forms by them)
@@ -87,16 +87,17 @@ foreach ($entries as $entry) {
     // One token for all the buttons of this field, for visitors without scripts.
     $token ??= $tokens->issue((string) $context, $itemId, $field->name);
     $title   = trim((string) ($entry['title'] ?? ''));
+    $button  = trim((string) ($entry['button'] ?? ''));
     $size  = $file !== null ? (int) filesize($file) : null;
 
     $downloads[] = (object) [
         'title'       => $title,
         'description' => trim((string) ($entry['description'] ?? '')),
-        'button'      => trim((string) ($entry['button'] ?? '')),
+        'button'      => $button,
         'icon'        => trim((string) ($entry['icon'] ?? '')),
         'class'       => trim((string) ($entry['class'] ?? '')) ?: 'btn-primary',
         'name'        => $name,
-        'label'       => $title ?: $name,
+        'label'       => $title ?: $button ?: Entries::readableName($name),
         'extension'   => Entries::extension($name),
         'size'        => $size,
         'meta'        => $size !== null

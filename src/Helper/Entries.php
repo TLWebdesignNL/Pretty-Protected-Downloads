@@ -335,6 +335,21 @@ final class Entries
     }
 
     /**
+     * A file name as a text to read: without its extension, and with spaces where it
+     * has dashes, underscores or dots. The name itself when nothing else is left.
+     *
+     * @param   string  $name  The file name.
+     *
+     * @return  string
+     */
+    public static function readableName(string $name): string
+    {
+        $text = trim((string) preg_replace('/[\s._-]+/u', ' ', pathinfo($name, PATHINFO_FILENAME)));
+
+        return $text !== '' ? $text : $name;
+    }
+
+    /**
      * The lower-case extension of a filename, without the dot.
      *
      * @param   string  $filename  The filename.

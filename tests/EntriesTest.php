@@ -59,6 +59,13 @@ check('otherwise the stored name without its uuid', Entries::downloadName(['uuid
 check('an uploaded name with another extension gets the stored one', Entries::downloadName(['uuid' => $uuid, 'filename' => $file, 'original' => 'report.html']) === 'report.html.pdf');
 check('extension case does not count as another extension', Entries::downloadName(['uuid' => $uuid, 'filename' => $file, 'original' => 'Report.PDF']) === 'Report.PDF');
 
+group('A file name as a text to read');
+check('without its extension', Entries::readableName('Report.pdf') === 'Report');
+check('dashes, underscores and dots become spaces', Entries::readableName('annual-report_2026.final.pdf') === 'annual report 2026 final');
+check('runs of them become one space', Entries::readableName('price - list__2026.pdf') === 'price list 2026');
+check('spaces and other characters stay', Entries::readableName('Prijslijst café 2026.pdf') === 'Prijslijst café 2026');
+check('a name with nothing else in it stays as it is', Entries::readableName('---.pdf') === '---.pdf');
+
 group('Files a save removes');
 $a = ['uuid' => $uuid, 'filename' => $file];
 $b = ['uuid' => $other, 'filename' => 'b-' . $other . '.pdf'];

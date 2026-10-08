@@ -35,8 +35,11 @@ $e = static fn (string $value): string => htmlspecialchars($value, ENT_QUOTES, '
                             <?php if ($download->icon !== '') : ?>
                                 <span class="<?php echo $e($download->icon); ?> me-1" aria-hidden="true"></span>
                             <?php endif; ?>
-                            <?php echo $e($download->button ?: Text::_('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_DOWNLOAD')); ?>
-                            <span class="visually-hidden">, <?php echo $e($download->label); ?></span>
+                            <?php $text = $download->button ?: Text::_('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_DOWNLOAD'); ?>
+                            <?php echo $e($text); ?>
+                            <?php if ($text !== $download->label) : ?>
+                                <span class="visually-hidden">, <?php echo $e($download->label); ?></span>
+                            <?php endif; ?>
                         </button>
                     </form>
                 </div>
