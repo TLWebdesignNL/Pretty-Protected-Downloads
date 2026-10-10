@@ -180,6 +180,47 @@ final class Settings
     }
 
     /**
+     * The options an upload is inspected for hidden code with, on top of the defaults
+     * of Joomla's own inspection.
+     *
+     * An archive of code, such as an extension package, can not pass that inspection:
+     * the names of the files in it are plain text in the archive, and small files are
+     * stored in it as they are. When the administrator allows code inside archives,
+     * the content of a zip archive is left alone. Its name is still inspected, and so
+     * is the content of every other upload.
+     *
+     * The content has to be detected as a zip archive for that. An octet stream is
+     * content the detection did not recognise, and no detection is no answer at all;
+     * neither is taken for an archive on the word of its name.
+     *
+     * @param   Registry  $params     The plugin parameters.
+     * @param   string    $extension  The lower-case extension.
+     * @param   ?string   $detected   The type the content was detected as, or null.
+     *
+     * @return  array<string, bool>
+     */
+    public static function scanOptions(Registry $params, string $extension, ?string $detected): array
+    {
+        $detected = strtolower(trim((string) $detected));
+
+        if (
+            !(int) $params->get('allow_code_in_archives', 0)
+            || $extension !== 'zip'
+            || $detected === 'application/octet-stream'
+            || self::typeMatches($extension, $detected) !== true
+        ) {
+            return [];
+        }
+
+        return [
+            'php_tag_in_content'      => false,
+            'shorttag_in_content'     => false,
+            'phar_stub_in_content'    => false,
+            'fobidden_ext_in_content' => false,
+        ];
+    }
+
+    /**
      * The largest upload accepted, in bytes: the setting, capped by what PHP accepts.
      *
      * @param   Registry  $params  The plugin parameters.

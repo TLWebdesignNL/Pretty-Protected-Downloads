@@ -413,15 +413,17 @@ final class Prettyprotecteddownloads extends FieldsPlugin implements SubscriberI
             throw new \RuntimeException(Text::sprintf('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_ERROR_EXTENSION', $extension, implode(', ', $allowed)), 400);
         }
 
+        $detected = $this->detectType((string) $file['tmp_name']);
+
         // The same inspection the Media Manager applies: forbidden extensions anywhere
-        // in the name, and PHP hidden inside the content.
-        if (!InputFilter::isSafeFile($file)) {
+        // in the name, and PHP hidden inside the content. The content of a zip archive
+        // is only left alone when the settings allow code inside archives.
+        if (!InputFilter::isSafeFile($file, Settings::scanOptions($this->params, $extension, $detected))) {
             throw new \RuntimeException(Text::_('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_ERROR_UNSAFE'), 400);
         }
 
         // The content must be what the extension says, as far as it can be told.
-        $detected = $this->detectType((string) $file['tmp_name']);
-        $matches  = $detected === null ? null : Settings::typeMatches($extension, $detected);
+        $matches = $detected === null ? null : Settings::typeMatches($extension, $detected);
 
         if ($matches === false) {
             throw new \RuntimeException(Text::sprintf('PLG_FIELDS_PRETTYPROTECTEDDOWNLOADS_ERROR_TYPE_MISMATCH', $extension), 400);

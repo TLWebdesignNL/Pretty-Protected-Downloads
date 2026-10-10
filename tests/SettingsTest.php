@@ -80,4 +80,36 @@ if (class_exists(\finfo::class)) {
     check('a PDF named .png is refused', Settings::typeMatches('png', $detect("%PDF-1.4\n%%EOF\n")) === false);
 }
 
+group('Code inside archives');
+$off     = new Registry();
+$on      = new Registry(['allow_code_in_archives' => 1]);
+$relaxed = Settings::scanOptions($on, 'zip', 'application/zip');
+check('off by default: a zip archive is inspected in full', Settings::scanOptions($off, 'zip', 'application/zip') === []);
+check('when allowed, the content of a zip archive is left alone', $relaxed !== [] && array_filter($relaxed) === []);
+check('the name of the archive is still inspected', !isset($relaxed['null_byte']) && !isset($relaxed['forbidden_extensions']));
+check('the detected type is compared without case', Settings::scanOptions($on, 'zip', ' Application/ZIP ') === $relaxed);
+check('an office document named .zip is an archive too', Settings::scanOptions($on, 'zip', Settings::CONTENT_TYPES['docx']) === $relaxed);
+check('content that was not recognised is not taken for an archive', Settings::scanOptions($on, 'zip', 'application/octet-stream') === []);
+check('nor is content that could not be detected', Settings::scanOptions($on, 'zip', null) === []);
+check('nor is text named .zip', Settings::scanOptions($on, 'zip', 'text/x-php') === []);
+check('other file types are inspected in full', Settings::scanOptions($on, 'pdf', 'application/pdf') === [] && Settings::scanOptions($on, 'txt', 'text/plain') === []);
+check('a zip archive under another name is inspected in full', Settings::scanOptions($on, 'docx', 'application/zip') === []);
+check('an archive type without a content rule is inspected in full', Settings::scanOptions($on, 'tar', 'application/x-tar') === []);
+
+if (class_exists(\finfo::class) && class_exists(\ZipArchive::class)) {
+    $package = getenv('TEST_ROOT') . '/package.zip';
+    $zip     = new \ZipArchive();
+    $zip->open($package, \ZipArchive::CREATE | \ZipArchive::OVERWRITE);
+    $zip->addFromString('plg_example/example.php', "<?php\n\ndefined('_JEXEC') or die;\n");
+    $zip->addFromString('plg_example/example.xml', '<?xml version="1.0" encoding="UTF-8"?><extension type="plugin"></extension>');
+    $zip->setCompressionName('plg_example/example.php', \ZipArchive::CM_STORE);
+    $zip->close();
+
+    $type = (string) (new \finfo(FILEINFO_MIME_TYPE))->file($package);
+
+    check('a real extension package holds what the inspection refuses', str_contains((string) file_get_contents($package), '<?php'));
+    check('and is recognised as an archive', Settings::scanOptions($on, 'zip', $type) === $relaxed);
+    check('PHP under the name of an archive is not', Settings::scanOptions($on, 'zip', (string) (new \finfo(FILEINFO_MIME_TYPE))->buffer("<?php\necho 1;\n")) === []);
+}
+
 finish();

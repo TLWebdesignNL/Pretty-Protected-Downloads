@@ -14,7 +14,7 @@ Use it for member documents, meeting minutes, reports for a closed group, price 
 - Visitors download the file under the name it was uploaded with.
 - Three layouts, **Buttons**, **Cards** and **List**, each with an optional file type and size, and each overridable from your template.
 - Works inside **subform** fields.
-- Allowed file types and a maximum file size. Scripts, web pages and SVG images are always refused, and every upload is inspected for hidden PHP the same way the Media Manager does it. The content must also match the extension: a web page named `report.pdf` is refused.
+- Allowed file types and a maximum file size. Scripts, web pages and SVG images are always refused, and every upload is inspected for hidden PHP the same way the Media Manager does it (zip archives of code, such as extension packages, can be allowed in the settings). The content must also match the extension: a web page named `report.pdf` is refused.
 - Removing a file from an article deletes it from disk once the article is saved, unless another article, such as a copy, still uses it.
 - A storage status on the plugin settings screen, and a button that deletes stored files no field uses any more.
 - English and Dutch language files.
@@ -75,6 +75,7 @@ For a folder inside the web root it also reports **Direct access**: the plugin a
 | Folder | The storage folder. An absolute path outside the web root, or a path relative to the site root inside it. |
 | Allowed File Types | Comma separated extensions editors may upload. Default: `pdf,doc,docx,odt,rtf,txt,csv,xls,xlsx,ods,ppt,pptx,odp,zip,jpg,jpeg,png,gif,webp,mp3,mp4`. For these types the content of each upload is checked against its extension. A type you add yourself is accepted without that check, and each such upload is written to the Joomla log. |
 | Maximum File Size (MB) | The largest upload. The server's PHP limit applies as well. |
+| Allow Code Inside Zip Archives | Off by default: an upload in which PHP is found is refused, which includes any zip archive with a `.php` file in it. Turn it on to offer extension packages and other archives of code. The content of a zip archive is then no longer inspected; its name still is, and so is every other file type. Only content that is detected as a zip archive counts, not a file that merely has the name of one. |
 | Download Button Lifetime (minutes) | How long a download button keeps working after the page was loaded. Default: 30. |
 
 ### Field options
